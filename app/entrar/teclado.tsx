@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { entrarConCodigo, type ResultadoEntrada } from "./acciones";
 
 const TECLAS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
@@ -11,6 +11,12 @@ export default function Teclado() {
     ResultadoEntrada,
     FormData
   >(entrarConCodigo, null);
+
+  // Si el código no era de nadie, se borra solo. En hora pico nadie quiere
+  // picar "Borrar" cuatro veces para volver a intentar.
+  useEffect(() => {
+    if (resultado?.error) setCodigo("");
+  }, [resultado]);
 
   function teclear(n: string) {
     if (enviando || codigo.length >= 4) return;
