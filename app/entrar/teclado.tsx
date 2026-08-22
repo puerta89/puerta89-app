@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { entrarConCodigo, type ResultadoEntrada } from "./acciones";
 
 const TECLAS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
@@ -12,26 +12,30 @@ export default function Teclado() {
     FormData
   >(entrarConCodigo, null);
 
-  // Si el código no era de nadie, se borra solo. En hora pico nadie quiere
-  // picar "Borrar" cuatro veces para volver a intentar.
-  useEffect(() => {
-    if (resultado?.error) setCodigo("");
-  }, [resultado]);
+  // Al picar Entrar el código se borra en el acto: el formulario ya tomó lo
+  // que necesitaba. Así, si no era de nadie, el mesero vuelve a teclear sin
+  // picar "Borrar" cuatro veces.
+  function alEnviar(datos: FormData) {
+    setCodigo("");
+    enviar(datos);
+  }
 
+  // Se actualiza a partir del valor anterior, no del que se leyó al dibujar.
+  // Si no, al teclear rápido los toques se pisan entre ellos y se pierden.
   function teclear(n: string) {
-    if (enviando || codigo.length >= 4) return;
-    setCodigo(codigo + n);
+    if (enviando) return;
+    setCodigo((prev) => (prev.length >= 4 ? prev : prev + n));
   }
 
   function borrar() {
     if (enviando) return;
-    setCodigo(codigo.slice(0, -1));
+    setCodigo((prev) => prev.slice(0, -1));
   }
 
   const completo = codigo.length === 4;
 
   return (
-    <form action={enviar} className="flex flex-col items-center gap-8">
+    <form action={alEnviar} className="flex flex-col items-center gap-8">
       <input type="hidden" name="codigo" value={codigo} />
 
       {/* Los cuatro puntos del código */}
