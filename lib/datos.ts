@@ -237,3 +237,42 @@ export function hoyEnMexico() {
     timeZone: "America/Mexico_City",
   }).format(new Date());
 }
+
+export type ItemInventario = {
+  producto_id: string | null;
+  presentacion_id: string | null;
+  nombre: string;
+  categoria: string;
+  unidad: string;
+  cantidad: number;
+  minimo: number;
+  costo_promedio: number;
+  costo_catalogo: number;
+  consumo_dia: number;
+  dias_restantes: number | null;
+  sugerido: number;
+};
+
+export async function traerInventario(sucursalId: string) {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("items_inventario", {
+    p_sucursal: sucursalId,
+  });
+  if (error) throw new Error(`No se pudo leer el inventario: ${error.message}`);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    ...r,
+    cantidad: Number(r.cantidad),
+    minimo: Number(r.minimo),
+    costo_promedio: Number(r.costo_promedio),
+    costo_catalogo: Number(r.costo_catalogo),
+    consumo_dia: Number(r.consumo_dia),
+    dias_restantes: r.dias_restantes === null ? null : Number(r.dias_restantes),
+    sugerido: Number(r.sugerido),
+  })) as ItemInventario[];
+}
+
+export async function traerProveedores() {
+  const supabase = supabaseServidor();
+  const { data } = await supabase.rpc("proveedores_de");
+  return (data ?? []) as { id: string; nombre: string }[];
+}
