@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { BancoDelMapa, ZonaDelMapa } from "@/lib/datos";
+import type { BancoDelMapa, CuentaEnBanco, ZonaDelMapa } from "@/lib/datos";
 import { abrirCuenta } from "./acciones";
 
 /* El plano se guarda en escala 0-100 para que no dependa del tamaño de la
@@ -55,7 +55,7 @@ export default function Mapa({
 
   function picar(b: BancoDelMapa) {
     setError(null);
-    if (b.ticket_id) {
+    if (b.cuentas.length > 0) {
       setElegidos([]);
       setMirando(b);
       return;
@@ -73,7 +73,7 @@ export default function Mapa({
   function picarZona(zona: ZonaDelMapa) {
     setError(null);
     setMirando(null);
-    const libres = zona.bancos.filter((b) => !b.ticket_id).map((b) => b.banco_id);
+    const libres = zona.bancos.filter((b) => b.cuentas.length === 0).map((b) => b.banco_id);
     const yaTodos = libres.every((id) => elegidos.includes(id));
     const nuevo = yaTodos ? [] : libres;
     setElegidos(nuevo);
@@ -95,7 +95,7 @@ export default function Mapa({
   }
 
   const libresPorZona = (z: ZonaDelMapa) =>
-    z.bancos.filter((b) => !b.ticket_id).length;
+    z.bancos.filter((b) => b.cuentas.length === 0).length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -173,9 +173,13 @@ export default function Mapa({
 
           {bancos.map((b) => {
             const elegido = elegidos.includes(b.banco_id);
-            const ocupado = Boolean(b.ticket_id);
-            const porCobrar = b.ticket_estado === "por_cobrar";
+            const ocupado = b.cuentas.length > 0;
+            const porCobrar = b.cuentas.some((c) => c.estado === "por_cobrar");
             const mirandoEste = mirando?.banco_id === b.banco_id;
+            // si hay varias cuentas, el reloj muestra la más vieja
+            const desde = b.cuentas
+              .map((c) => c.abierto_en)
+              .sort()[0];
 
             const relleno = elegido
               ? "#F4B3B3"
@@ -212,7 +216,7 @@ export default function Mapa({
                 >
                   {b.numero}
                 </text>
-                {b.abierto_en && (
+                {desde && (
                   <text
                     x={ex(b.pos_x)}
                     y={ey(b.pos_y) + RADIO + 22}
@@ -220,8 +224,30 @@ export default function Mapa({
                     fill="#6E4A50"
                     fontSize="19"
                   >
-                    {comoReloj(minutosDesde(b.abierto_en))}
+                    {comoReloj(minutosDesde(desde))}
                   </text>
+                )}
+                {b.cuentas.length > 1 && (
+                  <>
+                    <circle
+                      cx={ex(b.pos_x) + RADIO - 4}
+                      cy={ey(b.pos_y) - RADIO + 4}
+                      r="13"
+                      fill="#FBF6F6"
+                      stroke="#781727"
+                      strokeWidth="2"
+                    />
+                    <text
+                      x={ex(b.pos_x) + RADIO - 4}
+                      y={ey(b.pos_y) - RADIO + 9}
+                      textAnchor="middle"
+                      fill="#781727"
+                      fontSize="15"
+                      fontWeight="500"
+                    >
+                      {b.cuentas.length}
+                    </text>
+                  </>
                 )}
               </g>
             );
@@ -283,19 +309,15 @@ export default function Mapa({
         </div>
       )}
 
-      {/* Al picar un banco ocupado, se ve de quién es */}
+      {/* Al picar un banco ocupado, se ven sus cuentas */}
       {mirando && (
-        <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-4 rounded-sm border border-vino/20 bg-white px-5 py-4">
-          <div>
-            <p className="text-lg text-vino">Banco {mirando.numero}</p>
-            <p className="text-sm text-tinta-2">
-              {mirando.personas}{" "}
-              {mirando.personas === 1 ? "persona" : "personas"} · abrió{" "}
-              {mirando.mesero} ·{" "}
-              {mirando.abierto_en && comoReloj(minutosDesde(mirando.abierto_en))}
+        <div className="sticky bottom-0 flex flex-col gap-3 rounded-sm border border-vino/20 bg-white px-5 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-lg text-vino">
+              Banco {mirando.numero}
+              {mirando.cuentas.length > 1 &&
+                ` · ${mirando.cuentas.length} cuentas`}
             </p>
-          </div>
-          <div className="flex gap-2">
             <button
               type="button"
               onClick={() => setMirando(null)}
@@ -303,14 +325,25 @@ export default function Mapa({
             >
               Cerrar
             </button>
-            <button
-              type="button"
-              onClick={() => router.push(`/cuenta/${mirando.ticket_id}`)}
-              className="rounded-sm bg-vino px-6 py-2.5 font-medium text-crema"
-            >
-              Ver la cuenta
-            </button>
           </div>
+          <ul className="flex flex-col gap-2">
+            {mirando.cuentas.map((c: CuentaEnBanco) => (
+              <li key={c.ticket_id}>
+                <button
+                  type="button"
+                  onClick={() => router.push(`/cuenta/${c.ticket_id}`)}
+                  className="flex w-full items-center justify-between gap-3 rounded-sm border border-vino/15 px-4 py-3 text-left active:bg-rosa-claro/25"
+                >
+                  <span className="text-sm text-tinta-2">
+                    {c.personas} {c.personas === 1 ? "persona" : "personas"} ·
+                    abrió {c.mesero} · {comoReloj(minutosDesde(c.abierto_en))}
+                    {c.estado === "por_cobrar" && " · pidió la cuenta"}
+                  </span>
+                  <span className="text-sm font-medium text-vino">Ver →</span>
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

@@ -28,6 +28,30 @@ export default async function Cuenta({ params }: PageProps<"/cuenta/[id]">) {
     .sort((a: number, b: number) => a - b);
   const cabecera = suyos[0];
 
+  type Fila = {
+    banco_id: string; numero: number; zona_nombre: string; ticket_id: string | null;
+  };
+  const filas = (mapa ?? []) as Fila[];
+  // Los bancos donde ya está esta cuenta, más los que están libres.
+  const bancosPropios = [
+    ...new Set(filas.filter((r) => r.ticket_id === id).map((r) => r.banco_id)),
+  ];
+  const ocupadosPorOtros = new Set(
+    filas.filter((r) => r.ticket_id && r.ticket_id !== id).map((r) => r.banco_id),
+  );
+  const bancosLibres = [
+    ...new Map(
+      filas
+        .filter(
+          (r) => bancosPropios.includes(r.banco_id) || !ocupadosPorOtros.has(r.banco_id),
+        )
+        .map((r) => [
+          r.banco_id,
+          { id: r.banco_id, numero: r.numero, zona: r.zona_nombre },
+        ]),
+    ).values(),
+  ].sort((a, b) => a.numero - b.numero);
+
   const [catalogo, botellas, lineas] = await Promise.all([
     traerCatalogo(sesion.sucursalId),
     traerBotellas(sesion.sucursalId),
@@ -76,6 +100,8 @@ export default async function Cuenta({ params }: PageProps<"/cuenta/[id]">) {
           lineas={lineas}
           total={total}
           estado={cabecera.ticket_estado}
+          bancosLibres={bancosLibres}
+          bancosPropios={bancosPropios}
         />
       </div>
     </main>

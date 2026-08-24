@@ -149,3 +149,43 @@ export async function cerrarCuenta(
   revalidatePath("/barra");
   return null;
 }
+
+export async function moverCuenta(
+  ticketId: string,
+  bancos: string[],
+): Promise<Falla> {
+  const sesion = await leerSesion();
+  if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
+  if (bancos.length === 0) return { error: "Elige a dónde se cambian." };
+
+  const supabase = supabaseServidor();
+  const { error } = await supabase.rpc("mover_cuenta", {
+    p_empleado: sesion.empleadoId,
+    p_ticket: ticketId,
+    p_bancos: bancos,
+  });
+  if (error) return { error: error.message };
+  revalidatePath(`/cuenta/${ticketId}`);
+  revalidatePath("/barra");
+  return null;
+}
+
+export async function partirCuenta(
+  ticketId: string,
+  lineas: string[],
+): Promise<{ error: string } | { nuevoTicket: string }> {
+  const sesion = await leerSesion();
+  if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
+  if (lineas.length === 0) return { error: "Elige qué se pasa a la otra cuenta." };
+
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("partir_cuenta", {
+    p_empleado: sesion.empleadoId,
+    p_ticket: ticketId,
+    p_lineas: lineas,
+  });
+  if (error) return { error: error.message };
+  revalidatePath(`/cuenta/${ticketId}`);
+  revalidatePath("/barra");
+  return { nuevoTicket: data as string };
+}

@@ -8,6 +8,8 @@ import {
   abrirBotella,
   cancelarLinea,
   pedirCuenta,
+  moverCuenta,
+  partirCuenta,
 } from "./acciones";
 
 const TIPOS_VINO = ["tinto", "blanco", "rosado", "naranja"] as const;
@@ -29,6 +31,8 @@ export default function Comanda({
   lineas,
   total,
   estado,
+  bancosLibres,
+  bancosPropios,
 }: {
   ticketId: string;
   catalogo: ItemCatalogo[];
@@ -36,6 +40,8 @@ export default function Comanda({
   lineas: LineaTicket[];
   total: number;
   estado: "abierto" | "por_cobrar";
+  bancosLibres: { id: string; numero: number; zona: string }[];
+  bancosPropios: string[];
 }) {
   const router = useRouter();
   const categorias = useMemo(
@@ -47,6 +53,10 @@ export default function Comanda({
   const [sabores, setSabores] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [quitando, setQuitando] = useState<LineaTicket | null>(null);
+  const [moviendo, setMoviendo] = useState(false);
+  const [partiendo, setPartiendo] = useState(false);
+  const [destino, setDestino] = useState<string[]>(bancosPropios);
+  const [aPartir, setAPartir] = useState<string[]>([]);
   const [codigoJefe, setCodigoJefe] = useState("");
   const [motivo, setMotivo] = useState("");
   const [ocupado, empezar] = useTransition();
@@ -84,6 +94,9 @@ export default function Comanda({
         setQuitando(null);
         setCodigoJefe("");
         setMotivo("");
+        setMoviendo(false);
+        setPartiendo(false);
+        setAPartir([]);
         router.refresh();
       }
     });
@@ -223,6 +236,31 @@ export default function Comanda({
           <span className="tabular-nums">{pesos(total)}</span>
         </div>
 
+        <div className="flex gap-2 px-4 pt-3">
+          <button
+            type="button"
+            onClick={() => {
+              setDestino(bancosPropios);
+              setMoviendo(true);
+            }}
+            className="flex-1 rounded-sm border border-vino/25 px-3 py-2.5 text-xs text-vino"
+          >
+            Se cambiaron de lugar
+          </button>
+          {lineas.length > 1 && (
+            <button
+              type="button"
+              onClick={() => {
+                setAPartir([]);
+                setPartiendo(true);
+              }}
+              className="flex-1 rounded-sm border border-vino/25 px-3 py-2.5 text-xs text-vino"
+            >
+              Pagan por separado
+            </button>
+          )}
+        </div>
+
         {lineas.length > 0 && (
           <div className="flex gap-2 px-4 pb-4">
             {estado === "abierto" && (
@@ -319,6 +357,121 @@ export default function Comanda({
               }
             />
           ))}
+        </Hoja>
+      )}
+
+      {/* ─────────── SE CAMBIARON DE LUGAR ─────────── */}
+      {moviendo && (
+        <Hoja
+          titulo="¿A dónde se cambiaron?"
+          sub="La cuenta se muda con ellos"
+          cerrar={() => setMoviendo(false)}
+        >
+          <div className="flex flex-col gap-3 p-4">
+            <div className="grid grid-cols-4 gap-2">
+              {bancosLibres.map((b) => {
+                const puesto = destino.includes(b.id);
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() =>
+                      setDestino((p) =>
+                        p.includes(b.id) ? p.filter((x) => x !== b.id) : [...p, b.id],
+                      )
+                    }
+                    className={`rounded-sm border px-2 py-3 text-sm ${
+                      puesto
+                        ? "border-vino bg-rosa-claro text-vino"
+                        : "border-vino/20 text-tinta"
+                    }`}
+                  >
+                    {b.numero}
+                    <span className="block text-[10px] text-tinta-2">{b.zona}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-tinta-2">
+              Los bancos donde están ahora ya vienen marcados. Quítalos y marca
+              los nuevos. Queda el rastro de dónde estuvieron y hasta cuándo.
+            </p>
+            <button
+              type="button"
+              disabled={ocupado || destino.length === 0}
+              onClick={() => correr(() => moverCuenta(ticketId, destino))}
+              className="rounded-sm bg-vino px-4 py-3.5 font-medium text-crema disabled:opacity-40"
+            >
+              {ocupado ? "Cambiando..." : "Cambiar de lugar"}
+            </button>
+          </div>
+        </Hoja>
+      )}
+
+      {/* ─────────── PAGAN POR SEPARADO ─────────── */}
+      {partiendo && (
+        <Hoja
+          titulo="¿Qué se pasa a la otra cuenta?"
+          sub="Se queda en los mismos bancos"
+          cerrar={() => {
+            setPartiendo(false);
+            setAPartir([]);
+          }}
+        >
+          <div className="flex flex-col gap-3 p-4">
+            {lineas.map((l) => {
+              const puesto = aPartir.includes(l.linea_id);
+              return (
+                <button
+                  key={l.linea_id}
+                  type="button"
+                  onClick={() =>
+                    setAPartir((p) =>
+                      p.includes(l.linea_id)
+                        ? p.filter((x) => x !== l.linea_id)
+                        : [...p, l.linea_id],
+                    )
+                  }
+                  className={`flex items-center justify-between gap-3 rounded-sm border px-3 py-3 text-left text-sm ${
+                    puesto
+                      ? "border-vino bg-rosa-claro text-vino"
+                      : "border-vino/20 text-tinta"
+                  }`}
+                >
+                  <span>
+                    {l.cantidad}× {l.producto}
+                    {l.presentacion !== "Única" && ` · ${l.presentacion}`}
+                  </span>
+                  <span className="tabular-nums">{pesos(l.importe)}</span>
+                </button>
+              );
+            })}
+            <p className="text-xs text-tinta-2">
+              Lo que marques se va a una cuenta nueva. Lo demás se queda en esta.
+              No se puede pasar todo: entonces no se estaría partiendo nada.
+            </p>
+            <button
+              type="button"
+              disabled={
+                ocupado || aPartir.length === 0 || aPartir.length >= lineas.length
+              }
+              onClick={() =>
+                empezar(async () => {
+                  setError(null);
+                  const r = await partirCuenta(ticketId, aPartir);
+                  if ("error" in r) setError(r.error);
+                  else {
+                    setPartiendo(false);
+                    setAPartir([]);
+                    router.push(`/cuenta/${r.nuevoTicket}`);
+                  }
+                })
+              }
+              className="rounded-sm bg-vino px-4 py-3.5 font-medium text-crema disabled:opacity-40"
+            >
+              {ocupado ? "Partiendo..." : "Partir la cuenta"}
+            </button>
+          </div>
         </Hoja>
       )}
 

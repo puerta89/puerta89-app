@@ -1,6 +1,32 @@
 import { supabaseServidor } from "@/lib/supabase/server";
 
+export type CuentaEnBanco = {
+  ticket_id: string;
+  estado: "abierto" | "por_cobrar";
+  abierto_en: string;
+  personas: number;
+  mesero: string;
+};
+
+/** Un banco puede tener más de una cuenta: pidieron juntos y pagan separado. */
 export type BancoDelMapa = {
+  banco_id: string;
+  numero: number;
+  pos_x: number;
+  pos_y: number;
+  cuentas: CuentaEnBanco[];
+};
+
+export type ZonaDelMapa = {
+  id: string;
+  nombre: string;
+  bancos: BancoDelMapa[];
+};
+
+type Renglon = {
+  zona_id: string;
+  zona_nombre: string;
+  zona_orden: number;
   banco_id: string;
   numero: number;
   pos_x: number;
@@ -10,18 +36,6 @@ export type BancoDelMapa = {
   abierto_en: string | null;
   personas: number | null;
   mesero: string | null;
-};
-
-export type ZonaDelMapa = {
-  id: string;
-  nombre: string;
-  bancos: BancoDelMapa[];
-};
-
-type Renglon = BancoDelMapa & {
-  zona_id: string;
-  zona_nombre: string;
-  zona_orden: number;
 };
 
 /** Trae el mapa de la barra ya agrupado por zona. */
@@ -34,22 +48,34 @@ export async function traerMapa(sucursalId: string): Promise<ZonaDelMapa[]> {
   if (error) throw new Error(`No se pudo leer el mapa: ${error.message}`);
 
   const zonas = new Map<string, ZonaDelMapa>();
+  const bancos = new Map<string, BancoDelMapa>();
 
   for (const r of (data ?? []) as Renglon[]) {
     if (!zonas.has(r.zona_id)) {
       zonas.set(r.zona_id, { id: r.zona_id, nombre: r.zona_nombre, bancos: [] });
     }
-    zonas.get(r.zona_id)!.bancos.push({
-      banco_id: r.banco_id,
-      numero: r.numero,
-      pos_x: Number(r.pos_x),
-      pos_y: Number(r.pos_y),
-      ticket_id: r.ticket_id,
-      ticket_estado: r.ticket_estado,
-      abierto_en: r.abierto_en,
-      personas: r.personas,
-      mesero: r.mesero,
-    });
+    // La consulta trae un renglón por cada cuenta, así que un banco con dos
+    // cuentas viene dos veces. Aquí se juntan.
+    if (!bancos.has(r.banco_id)) {
+      const banco: BancoDelMapa = {
+        banco_id: r.banco_id,
+        numero: r.numero,
+        pos_x: Number(r.pos_x),
+        pos_y: Number(r.pos_y),
+        cuentas: [],
+      };
+      bancos.set(r.banco_id, banco);
+      zonas.get(r.zona_id)!.bancos.push(banco);
+    }
+    if (r.ticket_id && r.ticket_estado && r.abierto_en) {
+      bancos.get(r.banco_id)!.cuentas.push({
+        ticket_id: r.ticket_id,
+        estado: r.ticket_estado,
+        abierto_en: r.abierto_en,
+        personas: r.personas ?? 1,
+        mesero: r.mesero ?? "",
+      });
+    }
   }
 
   return [...zonas.values()];
