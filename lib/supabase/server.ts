@@ -23,6 +23,16 @@ export function supabaseServidor() {
     );
   }
 
+  // En el servidor de verdad, sin la llave secreta la app arrancaría pero
+  // fallaría en cada consulta con un "permiso denegado" que no dice nada.
+  // Mejor que no arranque y diga exactamente qué falta.
+  if (process.env.NODE_ENV === "production" && !secreta) {
+    throw new Error(
+      "Falta SUPABASE_SECRET_KEY. Sin ella la base no le responde a la app. " +
+        "Agrégala en Vercel: Settings → Environment Variables.",
+    );
+  }
+
   return createClient(url, llave, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
