@@ -57,6 +57,14 @@ export default async function Barra() {
               Panel
             </Link>
           )}
+          {sesion.rol === "dueno" && (
+            <Link
+              href="/equipo"
+              className="rounded-sm border border-crema/40 px-4 py-2 text-sm"
+            >
+              Equipo
+            </Link>
+          )}
           <form action={salir}>
             <button
               type="submit"

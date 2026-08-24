@@ -375,3 +375,19 @@ export function rango(dias: number) {
   d.setDate(d.getDate() - (dias - 1));
   return { desde: d.toISOString().slice(0, 10), hasta };
 }
+
+export type MiembroEquipo = {
+  empleado_id: string;
+  nombre: string;
+  rol: "dueno" | "gerente" | "mesero";
+  activo: boolean;
+  cuentas_abiertas: number;
+  desde: string;
+};
+
+export async function traerEquipo(sucursalId: string) {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("equipo_de", { p_sucursal: sucursalId });
+  if (error) throw new Error(`No se pudo leer el equipo: ${error.message}`);
+  return (data ?? []) as MiembroEquipo[];
+}
