@@ -56,3 +56,96 @@ export async function abrirBotella(
   revalidatePath(`/cuenta/${ticketId}`);
   return null;
 }
+
+export async function cancelarLinea(
+  ticketId: string,
+  lineaId: string,
+  codigo: string,
+  motivo: string,
+): Promise<Falla> {
+  const sesion = await leerSesion();
+  if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
+  if (!/^\d{4}$/.test(codigo)) return { error: "El código son 4 números." };
+  if (!motivo.trim()) return { error: "Falta decir por qué se cancela." };
+
+  const supabase = supabaseServidor();
+  const { error } = await supabase.rpc("cancelar_linea", {
+    p_solicitante: sesion.empleadoId,
+    p_codigo: codigo,
+    p_linea: lineaId,
+    p_motivo: motivo.trim(),
+  });
+
+  if (error) return { error: error.message };
+  revalidatePath(`/cuenta/${ticketId}`);
+  return null;
+}
+
+export async function pedirCuenta(ticketId: string): Promise<Falla> {
+  const sesion = await leerSesion();
+  if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
+
+  const supabase = supabaseServidor();
+  const { error } = await supabase.rpc("pedir_cuenta", {
+    p_empleado: sesion.empleadoId,
+    p_ticket: ticketId,
+  });
+  if (error) return { error: error.message };
+  revalidatePath(`/cuenta/${ticketId}`);
+  revalidatePath("/barra");
+  return null;
+}
+
+export async function agregarPago(
+  ticketId: string,
+  metodo: "efectivo" | "tarjeta",
+  monto: number,
+  terminal: string | null,
+): Promise<Falla> {
+  const sesion = await leerSesion();
+  if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
+
+  const supabase = supabaseServidor();
+  const { error } = await supabase.rpc("agregar_pago", {
+    p_empleado: sesion.empleadoId,
+    p_ticket: ticketId,
+    p_metodo: metodo,
+    p_monto: monto,
+    p_terminal: terminal,
+  });
+  if (error) return { error: error.message };
+  revalidatePath(`/cuenta/${ticketId}/cobrar`);
+  return null;
+}
+
+export async function quitarPago(ticketId: string, pagoId: string): Promise<Falla> {
+  const sesion = await leerSesion();
+  if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
+
+  const supabase = supabaseServidor();
+  const { error } = await supabase.rpc("quitar_pago", {
+    p_empleado: sesion.empleadoId,
+    p_pago: pagoId,
+  });
+  if (error) return { error: error.message };
+  revalidatePath(`/cuenta/${ticketId}/cobrar`);
+  return null;
+}
+
+export async function cerrarCuenta(
+  ticketId: string,
+  propina: number,
+): Promise<Falla> {
+  const sesion = await leerSesion();
+  if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
+
+  const supabase = supabaseServidor();
+  const { error } = await supabase.rpc("cerrar_cuenta", {
+    p_empleado: sesion.empleadoId,
+    p_ticket: ticketId,
+    p_propina: propina,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/barra");
+  return null;
+}

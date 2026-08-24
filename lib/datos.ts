@@ -128,3 +128,20 @@ export async function traerLineas(ticketId: string) {
     importe: Number(r.importe),
   })) as LineaTicket[];
 }
+
+export type Pago = {
+  pago_id: string;
+  metodo: "efectivo" | "tarjeta";
+  monto: number;
+  cobrado_en: string;
+};
+
+export async function traerPagos(ticketId: string) {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("pagos_de", { p_ticket: ticketId });
+  if (error) throw new Error(`No se pudieron leer los pagos: ${error.message}`);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    ...r,
+    monto: Number(r.monto),
+  })) as Pago[];
+}

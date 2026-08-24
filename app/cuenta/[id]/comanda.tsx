@@ -3,7 +3,12 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Botella, ItemCatalogo, LineaTicket } from "@/lib/datos";
-import { agregarLinea, abrirBotella } from "./acciones";
+import {
+  agregarLinea,
+  abrirBotella,
+  cancelarLinea,
+  pedirCuenta,
+} from "./acciones";
 
 const TIPOS_VINO = ["tinto", "blanco", "rosado", "naranja"] as const;
 const TAMANOS_HELADO = ["1 Bola", "2 Bolas", "Medio Litro", "Litro"];
@@ -23,12 +28,14 @@ export default function Comanda({
   botellas,
   lineas,
   total,
+  estado,
 }: {
   ticketId: string;
   catalogo: ItemCatalogo[];
   botellas: Botella[];
   lineas: LineaTicket[];
   total: number;
+  estado: "abierto" | "por_cobrar";
 }) {
   const router = useRouter();
   const categorias = useMemo(
@@ -39,6 +46,9 @@ export default function Comanda({
   const [pendiente, setPendiente] = useState<Pendiente>(null);
   const [sabores, setSabores] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [quitando, setQuitando] = useState<LineaTicket | null>(null);
+  const [codigoJefe, setCodigoJefe] = useState("");
+  const [motivo, setMotivo] = useState("");
   const [ocupado, empezar] = useTransition();
 
   const sabores_helado = useMemo(
@@ -71,6 +81,9 @@ export default function Comanda({
       else {
         setPendiente(null);
         setSabores([]);
+        setQuitando(null);
+        setCodigoJefe("");
+        setMotivo("");
         router.refresh();
       }
     });
@@ -179,9 +192,11 @@ export default function Comanda({
           ) : (
             <ul>
               {lineas.map((l) => (
-                <li
-                  key={l.linea_id}
-                  className="flex gap-3 border-b border-vino/10 py-2.5 text-sm last:border-b-0"
+                <li key={l.linea_id} className="border-b border-vino/10 last:border-b-0">
+                <button
+                  type="button"
+                  onClick={() => setQuitando(l)}
+                  className="flex w-full gap-3 py-2.5 text-left text-sm active:bg-rosa-claro/30"
                 >
                   <span className="w-7 shrink-0 text-tinta-2 tabular-nums">
                     {l.cantidad}×
@@ -196,6 +211,7 @@ export default function Comanda({
                     )}
                   </span>
                   <span className="tabular-nums">{pesos(l.importe)}</span>
+                </button>
                 </li>
               ))}
             </ul>
@@ -206,6 +222,28 @@ export default function Comanda({
           <span>Total</span>
           <span className="tabular-nums">{pesos(total)}</span>
         </div>
+
+        {lineas.length > 0 && (
+          <div className="flex gap-2 px-4 pb-4">
+            {estado === "abierto" && (
+              <button
+                type="button"
+                disabled={ocupado}
+                onClick={() => correr(() => pedirCuenta(ticketId))}
+                className="flex-1 rounded-sm border border-vino/30 px-4 py-3 text-sm text-vino disabled:opacity-50"
+              >
+                Pidieron la cuenta
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => router.push(`/cuenta/${ticketId}/cobrar`)}
+              className="flex-1 rounded-sm bg-vino px-4 py-3 font-medium text-crema"
+            >
+              Cobrar
+            </button>
+          </div>
+        )}
       </section>
 
       {error && (
@@ -281,6 +319,63 @@ export default function Comanda({
               }
             />
           ))}
+        </Hoja>
+      )}
+
+      {/* ─────────── QUITAR UN RENGLÓN ─────────── */}
+      {quitando && (
+        <Hoja
+          titulo="Quitar de la cuenta"
+          sub={`${quitando.cantidad}× ${quitando.producto} · ${pesos(quitando.importe)}`}
+          cerrar={() => {
+            setQuitando(null);
+            setCodigoJefe("");
+            setMotivo("");
+          }}
+        >
+          <div className="flex flex-col gap-4 p-4">
+            <label className="flex flex-col gap-1.5 text-sm">
+              ¿Por qué?
+              <input
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                placeholder="Se equivocó el mesero, se cayó la copa..."
+                className="rounded-sm border border-vino/25 px-3 py-3 outline-none focus:border-vino"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5 text-sm">
+              Código del dueño
+              <input
+                inputMode="numeric"
+                maxLength={4}
+                value={codigoJefe}
+                onChange={(e) =>
+                  setCodigoJefe(e.target.value.replace(/\D/g, "").slice(0, 4))
+                }
+                placeholder="····"
+                className="rounded-sm border border-vino/25 px-3 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:border-vino"
+              />
+            </label>
+
+            <p className="text-xs text-tinta-2">
+              Nada se borra. Queda anotado qué se quitó, quién lo pidió y quién
+              lo autorizó.
+            </p>
+
+            <button
+              type="button"
+              disabled={ocupado || codigoJefe.length !== 4 || !motivo.trim()}
+              onClick={() =>
+                correr(() =>
+                  cancelarLinea(ticketId, quitando.linea_id, codigoJefe, motivo),
+                )
+              }
+              className="rounded-sm bg-vino px-4 py-3.5 font-medium text-crema disabled:opacity-40"
+            >
+              {ocupado ? "Quitando..." : "Quitar"}
+            </button>
+          </div>
         </Hoja>
       )}
 
