@@ -145,3 +145,95 @@ export async function traerPagos(ticketId: string) {
     monto: Number(r.monto),
   })) as Pago[];
 }
+
+export type ResumenDia = {
+  corte_id: string;
+  estado: "abierto" | "cerrado";
+  fondo_inicial: number;
+  ventas_efectivo: number;
+  ventas_tarjeta: number;
+  entradas: number;
+  salidas: number;
+  efectivo_esperado: number;
+  tickets: number;
+  propina_tarjeta: number;
+  efectivo_contado: number | null;
+};
+
+export type Empleado = { empleado_id: string; nombre: string; rol: string };
+export type MovimientoCaja = {
+  id: string;
+  tipo: "entrada" | "salida";
+  monto: number;
+  concepto: string;
+};
+
+const aNumero = (r: Record<string, unknown>, campos: string[]) => {
+  const copia: Record<string, unknown> = { ...r };
+  for (const c of campos) if (copia[c] !== null) copia[c] = Number(copia[c]);
+  return copia;
+};
+
+export async function traerResumenDia(sucursalId: string, fecha: string) {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("resumen_del_dia", {
+    p_sucursal: sucursalId,
+    p_fecha: fecha,
+  });
+  if (error) throw new Error(`No se pudo leer el corte: ${error.message}`);
+  const r = data?.[0];
+  if (!r) return null;
+  return aNumero(r, [
+    "fondo_inicial",
+    "ventas_efectivo",
+    "ventas_tarjeta",
+    "entradas",
+    "salidas",
+    "efectivo_esperado",
+    "propina_tarjeta",
+    "efectivo_contado",
+  ]) as ResumenDia;
+}
+
+export async function traerEmpleados(sucursalId: string) {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("empleados_de", {
+    p_sucursal: sucursalId,
+  });
+  if (error) throw new Error(`No se pudo leer el equipo: ${error.message}`);
+  return (data ?? []) as Empleado[];
+}
+
+export async function traerMeserosDelDia(sucursalId: string, fecha: string) {
+  const supabase = supabaseServidor();
+  const { data } = await supabase.rpc("meseros_del_dia", {
+    p_sucursal: sucursalId,
+    p_fecha: fecha,
+  });
+  return (data ?? []) as (Empleado & { tickets: number })[];
+}
+
+export async function traerMovimientosCaja(corteId: string) {
+  const supabase = supabaseServidor();
+  const { data } = await supabase.rpc("movimientos_caja_de", { p_corte: corteId });
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    ...r,
+    monto: Number(r.monto),
+  })) as MovimientoCaja[];
+}
+
+export async function traerPropinasCorte(corteId: string) {
+  const supabase = supabaseServidor();
+  const { data } = await supabase.rpc("propinas_del_corte", { p_corte: corteId });
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    nombre: r.nombre as string,
+    monto: Number(r.monto),
+  }));
+}
+
+/** La fecha de hoy en México, no la del servidor. */
+export function hoyEnMexico() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Mexico_City",
+  }).format(new Date());
+}

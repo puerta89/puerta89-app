@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { leerSesion } from "@/lib/sesion";
 import { traerMapa } from "@/lib/datos";
@@ -32,6 +33,14 @@ export default async function Barra() {
             </p>
             <p className="text-lg font-medium">{sesion.nombre}</p>
           </div>
+          {sesion.rol !== "mesero" && (
+            <Link
+              href="/corte"
+              className="rounded-sm border border-crema/40 px-4 py-2 text-sm"
+            >
+              Corte
+            </Link>
+          )}
           <form action={salir}>
             <button
               type="submit"
