@@ -49,6 +49,14 @@ export default async function Barra() {
               Inventario
             </Link>
           )}
+          {sesion.rol !== "mesero" && (
+            <Link
+              href="/panel"
+              className="rounded-sm border border-crema/40 px-4 py-2 text-sm"
+            >
+              Panel
+            </Link>
+          )}
           <form action={salir}>
             <button
               type="submit"

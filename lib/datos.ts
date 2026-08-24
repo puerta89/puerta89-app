@@ -276,3 +276,76 @@ export async function traerProveedores() {
   const { data } = await supabase.rpc("proveedores_de");
   return (data ?? []) as { id: string; nombre: string }[];
 }
+
+export type PanelResumen = {
+  ventas: number; costo: number; utilidad_bruta: number; margen: number;
+  tickets: number; ticket_promedio: number; permanencia_min: number;
+  efectivo: number; tarjeta: number; propinas: number;
+  descuentos: number; cancelado: number; mermas: number;
+  gastos: number; utilidad_real: number;
+};
+export type Desglose = { etiqueta: string; venta: number; utilidad: number; unidades: number };
+export type BancoPanel = { banco: number; zona: string; cuentas: number; venta: number; permanencia_min: number };
+export type SucursalPanel = { sucursal: string; color: string; ventas: number; utilidad: number; tickets: number; ticket_promedio: number };
+export type Gasto = { id: string; fecha: string; categoria: string; concepto: string; monto: number; recurrente: boolean };
+
+const num = (r: Record<string, unknown>) =>
+  Object.fromEntries(
+    Object.entries(r).map(([k, v]) =>
+      typeof v === "string" && v !== "" && !Number.isNaN(Number(v)) ? [k, Number(v)] : [k, v],
+    ),
+  );
+
+export async function traerPanel(sucursalId: string, desde: string, hasta: string) {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("panel_resumen", {
+    p_sucursal: sucursalId, p_desde: desde, p_hasta: hasta,
+  });
+  if (error) throw new Error(`No se pudo leer el panel: ${error.message}`);
+  return num(data?.[0] ?? {}) as unknown as PanelResumen;
+}
+
+export async function traerDesglose(
+  sucursalId: string, desde: string, hasta: string,
+  por: "categoria" | "producto" | "mesero" | "hora",
+) {
+  const supabase = supabaseServidor();
+  const { data } = await supabase.rpc("panel_desglose", {
+    p_sucursal: sucursalId, p_desde: desde, p_hasta: hasta, p_por: por,
+  });
+  return (data ?? []).map((r: Record<string, unknown>) => num(r)) as unknown as Desglose[];
+}
+
+export async function traerBancosPanel(sucursalId: string, desde: string, hasta: string) {
+  const supabase = supabaseServidor();
+  const { data } = await supabase.rpc("panel_bancos", {
+    p_sucursal: sucursalId, p_desde: desde, p_hasta: hasta,
+  });
+  return (data ?? []).map((r: Record<string, unknown>) => num(r)) as unknown as BancoPanel[];
+}
+
+export async function traerSucursalesPanel(desde: string, hasta: string) {
+  const supabase = supabaseServidor();
+  const { data } = await supabase.rpc("panel_sucursales", { p_desde: desde, p_hasta: hasta });
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    ...num(r), color: r.color as string, sucursal: r.sucursal as string,
+  })) as unknown as SucursalPanel[];
+}
+
+export async function traerGastos(sucursalId: string, desde: string, hasta: string) {
+  const supabase = supabaseServidor();
+  const { data } = await supabase.rpc("gastos_de", {
+    p_sucursal: sucursalId, p_desde: desde, p_hasta: hasta,
+  });
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    ...r, monto: Number(r.monto),
+  })) as Gasto[];
+}
+
+/** Rango de fechas en México para los últimos N días. */
+export function rango(dias: number) {
+  const hasta = hoyEnMexico();
+  const d = new Date(hasta + "T12:00:00");
+  d.setDate(d.getDate() - (dias - 1));
+  return { desde: d.toISOString().slice(0, 10), hasta };
+}
