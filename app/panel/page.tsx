@@ -25,6 +25,7 @@ const PERIODOS = [
   { dias: 1, texto: "Hoy" },
   { dias: 7, texto: "7 días" },
   { dias: 30, texto: "30 días" },
+  { dias: 0, texto: "Todo" }, // 0 = sin límite, todo lo que haya cargado
 ];
 
 export default async function Panel({ searchParams }: PageProps<"/panel">) {
@@ -33,8 +34,10 @@ export default async function Panel({ searchParams }: PageProps<"/panel">) {
   if (sesion.rol === "mesero") redirect("/barra");
 
   const q = await searchParams;
-  const dias = Number(q?.dias) || 7;
-  const { desde, hasta } = rango(dias);
+  const dias = q?.dias !== undefined ? Number(q.dias) : 7;
+  // "Todo" arranca antes de que exista el negocio; no es invención,
+  // es simplemente "sin piso de fecha".
+  const { desde, hasta } = dias === 0 ? { desde: "2000-01-01", hasta: rango(1).hasta } : rango(dias);
 
   const [resumen, categorias, productos, meseros, horas, bancos, sucursales] =
     await Promise.all([
@@ -67,7 +70,7 @@ export default async function Panel({ searchParams }: PageProps<"/panel">) {
               Panel · {sesion.sucursalNombre}
             </p>
             <p className="text-lg font-medium">
-              {dias === 1 ? "Hoy" : `Últimos ${dias} días`}
+              {dias === 0 ? "Todo el histórico" : dias === 1 ? "Hoy" : `Últimos ${dias} días`}
             </p>
           </div>
         </div>
