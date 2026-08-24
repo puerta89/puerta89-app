@@ -54,3 +54,77 @@ export async function traerMapa(sucursalId: string): Promise<ZonaDelMapa[]> {
 
   return [...zonas.values()];
 }
+
+export type ItemCatalogo = {
+  categoria: string;
+  producto_id: string;
+  producto: string;
+  tipo_vino: string | null;
+  es_sabor_helado: boolean;
+  presentacion_id: string;
+  presentacion: string;
+  precio: number;
+  consumo_derivado: "copa" | "bola" | null;
+  factor_consumo: number;
+  es_para_llevar: boolean;
+};
+
+export type Botella = {
+  botella_id: string;
+  producto_id: string;
+  etiqueta: string;
+  tipo_vino: string;
+  copas_restantes: number;
+  costo_botella: number;
+};
+
+export type LineaTicket = {
+  linea_id: string;
+  producto: string;
+  presentacion: string;
+  etiqueta: string | null;
+  sabores: string | null;
+  cantidad: number;
+  precio_unitario: number;
+  importe: number;
+};
+
+export async function traerCatalogo(sucursalId: string) {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("catalogo", {
+    p_sucursal: sucursalId,
+  });
+  if (error) throw new Error(`No se pudo leer el menú: ${error.message}`);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    ...r,
+    precio: Number(r.precio),
+    factor_consumo: Number(r.factor_consumo),
+  })) as ItemCatalogo[];
+}
+
+export async function traerBotellas(sucursalId: string) {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("botellas_de", {
+    p_sucursal: sucursalId,
+  });
+  if (error) throw new Error(`No se pudieron leer las botellas: ${error.message}`);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    ...r,
+    copas_restantes: Number(r.copas_restantes),
+    costo_botella: Number(r.costo_botella),
+  })) as Botella[];
+}
+
+export async function traerLineas(ticketId: string) {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("ticket_detalle", {
+    p_ticket: ticketId,
+  });
+  if (error) throw new Error(`No se pudo leer la cuenta: ${error.message}`);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    ...r,
+    cantidad: Number(r.cantidad),
+    precio_unitario: Number(r.precio_unitario),
+    importe: Number(r.importe),
+  })) as LineaTicket[];
+}

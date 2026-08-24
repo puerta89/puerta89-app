@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { BancoDelMapa, ZonaDelMapa } from "@/lib/datos";
 import { abrirCuenta } from "./acciones";
 
@@ -33,6 +34,7 @@ export default function Mapa({
   zonas: ZonaDelMapa[];
   empleadoId: string;
 }) {
+  const router = useRouter();
   const [elegidos, setElegidos] = useState<string[]>([]);
   const [mirando, setMirando] = useState<BancoDelMapa | null>(null);
   const [personas, setPersonas] = useState(1);
@@ -82,8 +84,13 @@ export default function Mapa({
     setError(null);
     empezar(async () => {
       const r = await abrirCuenta(empleadoId, elegidos, personas);
-      if (r?.error) setError(r.error);
-      else setElegidos([]);
+      if ("error" in r) {
+        setError(r.error);
+        return;
+      }
+      // Al abrir la cuenta se pasa derecho a tomar la orden.
+      setElegidos([]);
+      router.push(`/cuenta/${r.ticketId}`);
     });
   }
 
@@ -288,13 +295,22 @@ export default function Mapa({
               {mirando.abierto_en && comoReloj(minutosDesde(mirando.abierto_en))}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setMirando(null)}
-            className="rounded-sm border border-vino/30 px-5 py-2.5 text-vino"
-          >
-            Cerrar
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setMirando(null)}
+              className="rounded-sm border border-vino/30 px-5 py-2.5 text-vino"
+            >
+              Cerrar
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push(`/cuenta/${mirando.ticket_id}`)}
+              className="rounded-sm bg-vino px-6 py-2.5 font-medium text-crema"
+            >
+              Ver la cuenta
+            </button>
+          </div>
         </div>
       )}
     </div>

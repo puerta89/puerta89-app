@@ -4,11 +4,13 @@ import { revalidatePath } from "next/cache";
 import { supabaseServidor } from "@/lib/supabase/server";
 import { leerSesion } from "@/lib/sesion";
 
+export type ResultadoAbrir = { error: string } | { ticketId: string };
+
 export async function abrirCuenta(
   empleadoId: string,
   bancos: string[],
   personas: number,
-) {
+): Promise<ResultadoAbrir> {
   const sesion = await leerSesion();
   // El id que manda el navegador no es de fiar: mandamos el de la sesión.
   if (!sesion || sesion.empleadoId !== empleadoId) {
@@ -16,7 +18,7 @@ export async function abrirCuenta(
   }
 
   const supabase = supabaseServidor();
-  const { error } = await supabase.rpc("abrir_cuenta", {
+  const { data, error } = await supabase.rpc("abrir_cuenta", {
     p_empleado: sesion.empleadoId,
     p_bancos: bancos,
     p_personas: personas,
@@ -28,5 +30,5 @@ export async function abrirCuenta(
   }
 
   revalidatePath("/barra");
-  return null;
+  return { ticketId: data as string };
 }
