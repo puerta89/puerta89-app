@@ -57,6 +57,14 @@ export default async function Barra() {
               Panel
             </Link>
           )}
+          {sesion.rol !== "mesero" && (
+            <Link
+              href="/catalogo"
+              className="rounded-sm border border-crema/40 px-4 py-2 text-sm"
+            >
+              Catálogo
+            </Link>
+          )}
           {sesion.rol === "dueno" && (
             <Link
               href="/equipo"

@@ -403,6 +403,15 @@ export async function traerVentasLineas(sucursalId: string, desde: string, hasta
   return (data ?? []).map((r: Record<string, unknown>) => num(r)) as unknown as VentaLinea[];
 }
 
+export type Categoria = { id: string; nombre: string };
+
+export async function traerCategorias() {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("categorias_de");
+  if (error) throw new Error(`No se pudieron leer las categorías: ${error.message}`);
+  return (data ?? []) as Categoria[];
+}
+
 /** Rango de fechas en México para los últimos N días. */
 export function rango(dias: number) {
   const hasta = hoyEnMexico();
