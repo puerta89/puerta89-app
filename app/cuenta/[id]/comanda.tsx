@@ -21,7 +21,8 @@ const pesos = (n: number) =>
 type Pendiente =
   | { tipo: "vino-copa"; vino: string; precio: number }
   | { tipo: "vino-botella"; vino: string; precio: number }
-  | { tipo: "helado"; tamano: string; cuantos: number; precio: number }
+  | { tipo: "helado"; tamano: string; cuantosSabores: number; precio: number }
+  | { tipo: "affogato"; precio: number; presentacionId: string }
   | null;
 
 export default function Comanda({
@@ -51,6 +52,15 @@ export default function Comanda({
   const [categoria, setCategoria] = useState(categorias[0] ?? "");
   const [pendiente, setPendiente] = useState<Pendiente>(null);
   const [sabores, setSabores] = useState<string[]>([]);
+  const [cantidad, setCantidad] = useState(1);
+  // Lo que ya se eligió y solo falta confirmar la cantidad: una botella
+  // abierta, una etiqueta de botella completa, o el sabor del Affogato.
+  const [listoParaConfirmar, setListoParaConfirmar] = useState<{
+    presentacionId: string;
+    botellaId: string | null;
+    saboresDecorativos: string[] | null;
+    titulo: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [quitando, setQuitando] = useState<LineaTicket | null>(null);
   const [moviendo, setMoviendo] = useState(false);
@@ -69,6 +79,11 @@ export default function Comanda({
     [catalogo],
   );
 
+  const affogato = useMemo(
+    () => catalogo.find((i) => i.producto === "Affogato 89"),
+    [catalogo],
+  );
+
   /** Precio de un tipo de vino en cierta presentación (todos valen igual). */
   function precioVino(tipo: string, pres: string) {
     return catalogo.find(
@@ -83,14 +98,20 @@ export default function Comanda({
     )?.presentacion_id;
   }
 
+  function cerrarTodo() {
+    setPendiente(null);
+    setSabores([]);
+    setListoParaConfirmar(null);
+    setCantidad(1);
+  }
+
   function correr(fn: () => Promise<{ error: string } | null>) {
     setError(null);
     empezar(async () => {
       const r = await fn();
       if (r?.error) setError(r.error);
       else {
-        setPendiente(null);
-        setSabores([]);
+        cerrarTodo();
         setQuitando(null);
         setCodigoJefe("");
         setMotivo("");
@@ -102,8 +123,28 @@ export default function Comanda({
     });
   }
 
-  function agregarSimple(item: ItemCatalogo) {
-    correr(() => agregarLinea(ticketId, item.presentacion_id, 1, null, null));
+  /** Abre el paso de "¿cuántos?" para cualquier cosa que se vaya a agregar. */
+  function pedirCantidad(opts: {
+    presentacionId: string;
+    botellaId?: string | null;
+    saboresDecorativos?: string[] | null;
+    titulo: string;
+  }) {
+    setCantidad(1);
+    setListoParaConfirmar({
+      presentacionId: opts.presentacionId,
+      botellaId: opts.botellaId ?? null,
+      saboresDecorativos: opts.saboresDecorativos ?? null,
+      titulo: opts.titulo,
+    });
+  }
+
+  function confirmarCantidad() {
+    if (!listoParaConfirmar) return;
+    const { presentacionId, botellaId, saboresDecorativos } = listoParaConfirmar;
+    correr(() =>
+      agregarLinea(ticketId, presentacionId, cantidad, botellaId, saboresDecorativos),
+    );
   }
 
   const etiquetasPorTipo = (tipo: string) =>
@@ -157,28 +198,45 @@ export default function Comanda({
               }),
             )}
 
-          {categoria === "Helados" &&
-            TAMANOS_HELADO.map((t) => {
-              const item = catalogo.find(
-                (i) => i.es_sabor_helado && i.presentacion === t,
-              );
-              if (!item) return null;
-              return (
+          {categoria === "Helados" && (
+            <>
+              {TAMANOS_HELADO.map((t) => {
+                const item = catalogo.find(
+                  (i) => i.es_sabor_helado && i.presentacion === t,
+                );
+                if (!item) return null;
+                return (
+                  <Tarjeta
+                    key={t}
+                    titulo={t}
+                    abajo={`${pesos(item.precio)}${item.es_para_llevar ? " · para llevar" : ""}`}
+                    onClick={() => {
+                      setSabores([]);
+                      setPendiente({
+                        tipo: "helado",
+                        tamano: t,
+                        cuantosSabores: t === "2 Bolas" ? 2 : 1,
+                        precio: item.precio,
+                      });
+                    }}
+                  />
+                );
+              })}
+              {affogato && (
                 <Tarjeta
-                  key={t}
-                  titulo={t}
-                  abajo={`${pesos(item.precio)}${item.es_para_llevar ? " · para llevar" : ""}`}
+                  titulo="Affogato 89"
+                  abajo={pesos(affogato.precio)}
                   onClick={() =>
                     setPendiente({
-                      tipo: "helado",
-                      tamano: t,
-                      cuantos: t === "2 Bolas" ? 2 : 1,
-                      precio: item.precio,
+                      tipo: "affogato",
+                      precio: affogato.precio,
+                      presentacionId: affogato.presentacion_id,
                     })
                   }
                 />
-              );
-            })}
+              )}
+            </>
+          )}
 
           {categoria !== "Vinos" &&
             categoria !== "Helados" &&
@@ -189,7 +247,12 @@ export default function Comanda({
                   key={i.presentacion_id}
                   titulo={i.producto}
                   abajo={`${i.presentacion === "Única" ? "" : i.presentacion + " · "}${pesos(i.precio)}`}
-                  onClick={() => agregarSimple(i)}
+                  onClick={() =>
+                    pedirCantidad({
+                      presentacionId: i.presentacion_id,
+                      titulo: i.producto,
+                    })
+                  }
                 />
               ))}
         </div>
@@ -291,11 +354,11 @@ export default function Comanda({
       )}
 
       {/* ─────────── ¿DE CUÁL BOTELLA? ─────────── */}
-      {pendiente?.tipo === "vino-copa" && (
+      {pendiente?.tipo === "vino-copa" && !listoParaConfirmar && (
         <Hoja
           titulo={`¿De cuál ${pendiente.vino}?`}
           sub={`Copa · ${pesos(pendiente.precio)}`}
-          cerrar={() => setPendiente(null)}
+          cerrar={cerrarTodo}
         >
           {botellas
             .filter((b) => b.tipo_vino === pendiente.vino)
@@ -308,15 +371,11 @@ export default function Comanda({
                 tono={b.copas_restantes <= 1 ? "aviso" : "bien"}
                 disabled={ocupado}
                 onClick={() =>
-                  correr(() =>
-                    agregarLinea(
-                      ticketId,
-                      presentacionDe(b.producto_id, "Copa")!,
-                      1,
-                      b.botella_id,
-                      null,
-                    ),
-                  )
+                  pedirCantidad({
+                    presentacionId: presentacionDe(b.producto_id, "Copa")!,
+                    botellaId: b.botella_id,
+                    titulo: `Copa de ${b.etiqueta}`,
+                  })
                 }
               />
             ))}
@@ -339,11 +398,11 @@ export default function Comanda({
       )}
 
       {/* ─────────── BOTELLA COMPLETA ─────────── */}
-      {pendiente?.tipo === "vino-botella" && (
+      {pendiente?.tipo === "vino-botella" && !listoParaConfirmar && (
         <Hoja
           titulo={`¿Cuál ${pendiente.vino}?`}
           sub={`Botella · ${pesos(pendiente.precio)}`}
-          cerrar={() => setPendiente(null)}
+          cerrar={cerrarTodo}
         >
           {etiquetasPorTipo(pendiente.vino).map((e) => (
             <Opcion
@@ -351,9 +410,10 @@ export default function Comanda({
               titulo={e.producto}
               disabled={ocupado}
               onClick={() =>
-                correr(() =>
-                  agregarLinea(ticketId, e.presentacion_id, 1, null, null),
-                )
+                pedirCantidad({
+                  presentacionId: e.presentacion_id,
+                  titulo: `Botella de ${e.producto}`,
+                })
               }
             />
           ))}
@@ -533,18 +593,15 @@ export default function Comanda({
       )}
 
       {/* ─────────── SABORES DE HELADO ─────────── */}
-      {pendiente?.tipo === "helado" && (
+      {pendiente?.tipo === "helado" && !listoParaConfirmar && (
         <Hoja
           titulo={
-            pendiente.cuantos === 2
+            pendiente.cuantosSabores === 2
               ? `Elige 2 sabores (${sabores.length} de 2)`
               : "Elige el sabor"
           }
           sub={`${pendiente.tamano} · ${pesos(pendiente.precio)}`}
-          cerrar={() => {
-            setPendiente(null);
-            setSabores([]);
-          }}
+          cerrar={cerrarTodo}
         >
           <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-3">
             {sabores_helado.map((s) => {
@@ -556,14 +613,16 @@ export default function Comanda({
                   disabled={ocupado}
                   onClick={() => {
                     const nuevo = [...sabores, s.producto_id];
-                    if (nuevo.length < pendiente.cuantos) {
+                    if (nuevo.length < pendiente.cuantosSabores) {
                       setSabores(nuevo);
                       return;
                     }
                     const pres = presentacionDe(nuevo[0], pendiente.tamano)!;
-                    correr(() =>
-                      agregarLinea(ticketId, pres, 1, null, nuevo),
-                    );
+                    pedirCantidad({
+                      presentacionId: pres,
+                      saboresDecorativos: nuevo,
+                      titulo: `${pendiente.tamano} de ${[...new Set(nuevo)].join(" y ")}`,
+                    });
                   }}
                   className={`rounded-sm border px-3 py-4 text-sm ${
                     veces > 0
@@ -576,6 +635,76 @@ export default function Comanda({
                 </button>
               );
             })}
+          </div>
+        </Hoja>
+      )}
+
+      {/* ─────────── SABOR DEL AFFOGATO ─────────── */}
+      {pendiente?.tipo === "affogato" && !listoParaConfirmar && (
+        <Hoja
+          titulo="¿De qué sabor?"
+          sub={`Affogato 89 · ${pesos(pendiente.precio)}`}
+          cerrar={cerrarTodo}
+        >
+          <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-3">
+            {sabores_helado.map((s) => (
+              <button
+                key={s.producto_id}
+                type="button"
+                disabled={ocupado}
+                onClick={() =>
+                  pedirCantidad({
+                    presentacionId: pendiente.presentacionId,
+                    saboresDecorativos: [s.producto_id],
+                    titulo: `Affogato de ${s.producto}`,
+                  })
+                }
+                className="rounded-sm border border-vino/20 px-3 py-4 text-sm text-tinta"
+              >
+                {s.producto}
+              </button>
+            ))}
+          </div>
+        </Hoja>
+      )}
+
+      {/* ─────────── ¿CUÁNTOS? (paso final, común a todo) ─────────── */}
+      {listoParaConfirmar && (
+        <Hoja
+          titulo={listoParaConfirmar.titulo}
+          sub="¿Cuántos son?"
+          cerrar={cerrarTodo}
+        >
+          <div className="flex flex-col gap-4 p-4">
+            <div className="flex items-center justify-center gap-6">
+              <button
+                type="button"
+                disabled={ocupado || cantidad <= 1}
+                onClick={() => setCantidad((n) => Math.max(1, n - 1))}
+                className="size-14 rounded-full border-2 border-vino/30 text-2xl text-vino disabled:opacity-30"
+              >
+                −
+              </button>
+              <span className="w-12 text-center font-display text-4xl tabular-nums">
+                {cantidad}
+              </span>
+              <button
+                type="button"
+                disabled={ocupado}
+                onClick={() => setCantidad((n) => n + 1)}
+                className="size-14 rounded-full border-2 border-vino/30 text-2xl text-vino"
+              >
+                +
+              </button>
+            </div>
+            <button
+              type="button"
+              disabled={ocupado}
+              onClick={confirmarCantidad}
+              className="rounded-sm bg-vino px-4 py-3.5 font-medium text-crema disabled:opacity-40"
+            >
+              {ocupado ? "Agregando..." : `Agregar ${cantidad}`}
+            </button>
           </div>
         </Hoja>
       )}
