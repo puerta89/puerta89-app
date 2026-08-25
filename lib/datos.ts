@@ -369,6 +369,30 @@ export async function traerGastos(sucursalId: string, desde: string, hasta: stri
   })) as Gasto[];
 }
 
+// Una fila por día + artículo, con el mismo formato que el reporte
+// "Ventas por artículo" de Loyverse — para que Iram pueda usar esta
+// descarga igual que ya usa ese export (pegarlo en su propio Excel).
+export type VentaLinea = {
+  fecha: string;
+  articulo: string;
+  categoria: string;
+  cantidad: number;
+  ventas_brutas: number;
+  ventas_netas: number;
+  costo: number;
+  beneficio_bruto: number;
+  margen: number;
+};
+
+export async function traerVentasLineas(sucursalId: string, desde: string, hasta: string) {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("panel_ventas_lineas", {
+    p_sucursal: sucursalId, p_desde: desde, p_hasta: hasta,
+  });
+  if (error) throw new Error(`No se pudo leer las ventas por artículo: ${error.message}`);
+  return (data ?? []).map((r: Record<string, unknown>) => num(r)) as unknown as VentaLinea[];
+}
+
 /** Rango de fechas en México para los últimos N días. */
 export function rango(dias: number) {
   const hasta = hoyEnMexico();

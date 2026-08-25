@@ -9,6 +9,7 @@ import {
   traerMeses,
   traerMesesGrupo,
   traerGastos,
+  traerVentasLineas,
   hoyEnMexico,
   type Desglose,
 } from "@/lib/datos";
@@ -49,9 +50,13 @@ export async function GET(request: NextRequest) {
   const hasta = searchParams.get("hasta") || hoy;
   const esTodo = desde === SIN_PISO;
 
-  const [resumen, categorias, productos, meseros, horas, bancos, sucursales, meses, mesesGrupo, gastos] =
+  const [resumen, ventasLineas, categorias, productos, meseros, horas, bancos, sucursales, meses, mesesGrupo, gastos] =
     await Promise.all([
       traerPanel(sesion.sucursalId, desde, hasta),
+      // Solo tiene sentido con un piso de fecha real: "todo el histórico"
+      // (desde 2000) generaría una fila por día-artículo de 1550+ tickets,
+      // demasiado pesado y poco útil para pegar en un Excel.
+      esTodo ? Promise.resolve([]) : traerVentasLineas(sesion.sucursalId, desde, hasta),
       traerDesglose(sesion.sucursalId, desde, hasta, "categoria"),
       traerDesglose(sesion.sucursalId, desde, hasta, "producto"),
       traerDesglose(sesion.sucursalId, desde, hasta, "mesero"),
@@ -98,6 +103,31 @@ export async function GET(request: NextRequest) {
     hResumen.getCell(`B${fila}`).numFmt = PESOS;
   });
   hResumen.getRow(1).font = { bold: true };
+
+  // ── Ventas por artículo (mismo formato que "Informes → Ventas por
+  //    artículo" de Loyverse, una fila por día + artículo) — para que se
+  //    pueda pegar directo donde antes se pegaba el export de Loyverse. ──
+  if (ventasLineas.length > 0) {
+    const h = wb.addWorksheet("Ventas");
+    h.columns = [
+      { header: "Fecha", key: "fecha", width: 12 },
+      { header: "Artículo", key: "articulo", width: 30 },
+      { header: "Categoría", key: "categoria", width: 14 },
+      { header: "Cantidad", key: "cantidad", width: 10 },
+      { header: "Ventas brutas", key: "ventas_brutas", width: 14 },
+      { header: "Ventas netas", key: "ventas_netas", width: 14 },
+      { header: "Costo de los bienes", key: "costo", width: 16 },
+      { header: "Beneficio bruto", key: "beneficio_bruto", width: 14 },
+      { header: "Margen", key: "margen", width: 10 },
+    ];
+    h.addRows(ventasLineas);
+    h.getColumn("ventas_brutas").numFmt = PESOS;
+    h.getColumn("ventas_netas").numFmt = PESOS;
+    h.getColumn("costo").numFmt = PESOS;
+    h.getColumn("beneficio_bruto").numFmt = PESOS;
+    h.getColumn("margen").numFmt = "0.0%";
+    h.getRow(1).font = { bold: true };
+  }
 
   // ── Desgloses ────────────────────────────────────────────────────────
   hojaDesglose(wb, "Por categoría", categorias);
