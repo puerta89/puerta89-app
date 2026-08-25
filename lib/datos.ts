@@ -391,3 +391,33 @@ export async function traerEquipo(sucursalId: string) {
   if (error) throw new Error(`No se pudo leer el equipo: ${error.message}`);
   return (data ?? []) as MiembroEquipo[];
 }
+
+export type MesPanel = {
+  mes: string;
+  ventas: number;
+  utilidad: number;
+  tickets: number;
+  ticket_promedio: number;
+};
+
+export async function traerMeses(sucursalId: string) {
+  const supabase = supabaseServidor();
+  const { data } = await supabase.rpc("panel_meses", { p_sucursal: sucursalId });
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    ...r,
+    ventas: Number(r.ventas),
+    utilidad: Number(r.utilidad),
+    ticket_promedio: Number(r.ticket_promedio),
+  })) as MesPanel[];
+}
+
+export type MesGrupo = { mes: string; grupo: string; ventas: number };
+
+export async function traerMesesGrupo(sucursalId: string) {
+  const supabase = supabaseServidor();
+  const { data } = await supabase.rpc("panel_meses_grupo", { p_sucursal: sucursalId });
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    ...r,
+    ventas: Number(r.ventas),
+  })) as MesGrupo[];
+}
