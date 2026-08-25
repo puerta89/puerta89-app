@@ -60,22 +60,48 @@ export async function abrirBotella(
 export async function cancelarLinea(
   ticketId: string,
   lineaId: string,
-  codigo: string,
+  codigo: string | null,
   motivo: string,
 ): Promise<Falla> {
   const sesion = await leerSesion();
   if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
-  if (!/^\d{4}$/.test(codigo)) return { error: "El código son 4 números." };
   if (!motivo.trim()) return { error: "Falta decir por qué se cancela." };
+  // El dueño o gerente se autoriza a sí mismo con su propia sesión: no
+  // necesita teclear su propio código. El mesero sí necesita el código
+  // de alguien con autoridad.
+  const necesitaCodigo = sesion.rol === "mesero";
+  if (necesitaCodigo && !/^\d{4}$/.test(codigo ?? "")) {
+    return { error: "El código son 4 números." };
+  }
 
   const supabase = supabaseServidor();
   const { error } = await supabase.rpc("cancelar_linea", {
     p_solicitante: sesion.empleadoId,
-    p_codigo: codigo,
     p_linea: lineaId,
     p_motivo: motivo.trim(),
+    p_codigo: necesitaCodigo ? codigo : null,
   });
 
+  if (error) return { error: error.message };
+  revalidatePath(`/cuenta/${ticketId}`);
+  return null;
+}
+
+/** "Sírveme otra copa": deshace un exceso propio, sin pedir código,
+ * mientras esa línea siga dentro de los 10 minutos de haberse creado. */
+export async function disminuirCantidad(
+  ticketId: string,
+  lineaId: string,
+): Promise<Falla> {
+  const sesion = await leerSesion();
+  if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
+
+  const supabase = supabaseServidor();
+  const { error } = await supabase.rpc("disminuir_cantidad", {
+    p_empleado: sesion.empleadoId,
+    p_linea: lineaId,
+    p_menos: 1,
+  });
   if (error) return { error: error.message };
   revalidatePath(`/cuenta/${ticketId}`);
   return null;

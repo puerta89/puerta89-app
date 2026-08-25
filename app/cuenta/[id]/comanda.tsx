@@ -11,7 +11,16 @@ import {
   moverCuenta,
   partirCuenta,
   aumentarCantidad,
+  disminuirCantidad,
 } from "./acciones";
+
+// "Sírveme otra copa" se puede deshacer sin pedir nada, pero solo un
+// rato después de haberlo pedido. Pasado esto, hay que usar "Quitar".
+const MINUTOS_PARA_DESHACER = 10;
+function sePuedeDeshacer(creadoEn: string) {
+  const minutos = (Date.now() - new Date(creadoEn).getTime()) / 60000;
+  return minutos < MINUTOS_PARA_DESHACER;
+}
 
 const TIPOS_VINO = ["tinto", "blanco", "rosado", "naranja"] as const;
 const TAMANOS_HELADO = ["1 Bola", "2 Bolas", "Medio Litro", "Litro"];
@@ -35,6 +44,7 @@ export default function Comanda({
   estado,
   bancosLibres,
   bancosPropios,
+  rol,
 }: {
   ticketId: string;
   catalogo: ItemCatalogo[];
@@ -44,6 +54,7 @@ export default function Comanda({
   estado: "abierto" | "por_cobrar";
   bancosLibres: { id: string; numero: number; zona: string }[];
   bancosPropios: string[];
+  rol: "dueno" | "gerente" | "mesero";
 }) {
   const router = useRouter();
   const categorias = useMemo(
@@ -297,6 +308,19 @@ export default function Comanda({
                     </span>
                     <span className="tabular-nums">{pesos(l.importe)}</span>
                   </button>
+                  {sePuedeDeshacer(l.creado_en) && (
+                    <button
+                      type="button"
+                      title="Se equivocaron, quita una"
+                      disabled={ocupado}
+                      onClick={() =>
+                        correr(() => disminuirCantidad(ticketId, l.linea_id))
+                      }
+                      className="flex size-8 shrink-0 items-center justify-center rounded-full border border-vino/25 text-vino disabled:opacity-40"
+                    >
+                      −
+                    </button>
+                  )}
                   <button
                     type="button"
                     title="Sírveles otra igual"
@@ -577,19 +601,21 @@ export default function Comanda({
               />
             </label>
 
-            <label className="flex flex-col gap-1.5 text-sm">
-              Código del dueño
-              <input
-                inputMode="numeric"
-                maxLength={4}
-                value={codigoJefe}
-                onChange={(e) =>
-                  setCodigoJefe(e.target.value.replace(/\D/g, "").slice(0, 4))
-                }
-                placeholder="····"
-                className="rounded-sm border border-vino/25 px-3 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:border-vino"
-              />
-            </label>
+            {rol === "mesero" && (
+              <label className="flex flex-col gap-1.5 text-sm">
+                Código del dueño
+                <input
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={codigoJefe}
+                  onChange={(e) =>
+                    setCodigoJefe(e.target.value.replace(/\D/g, "").slice(0, 4))
+                  }
+                  placeholder="····"
+                  className="rounded-sm border border-vino/25 px-3 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:border-vino"
+                />
+              </label>
+            )}
 
             <p className="text-xs text-tinta-2">
               Nada se borra. Queda anotado qué se quitó, quién lo pidió y quién
@@ -598,10 +624,19 @@ export default function Comanda({
 
             <button
               type="button"
-              disabled={ocupado || codigoJefe.length !== 4 || !motivo.trim()}
+              disabled={
+                ocupado ||
+                !motivo.trim() ||
+                (rol === "mesero" && codigoJefe.length !== 4)
+              }
               onClick={() =>
                 correr(() =>
-                  cancelarLinea(ticketId, quitando.linea_id, codigoJefe, motivo),
+                  cancelarLinea(
+                    ticketId,
+                    quitando.linea_id,
+                    rol === "mesero" ? codigoJefe : null,
+                    motivo,
+                  ),
                 )
               }
               className="rounded-sm bg-vino px-4 py-3.5 font-medium text-crema disabled:opacity-40"

@@ -113,6 +113,7 @@ export type LineaTicket = {
   cantidad: number;
   precio_unitario: number;
   importe: number;
+  creado_en: string;
 };
 
 export async function traerCatalogo(sucursalId: string) {

@@ -100,6 +100,7 @@ export default async function Cuenta({ params }: PageProps<"/cuenta/[id]">) {
           lineas={lineas}
           total={total}
           estado={cabecera.ticket_estado}
+          rol={sesion.rol}
           bancosLibres={bancosLibres}
           bancosPropios={bancosPropios}
         />
