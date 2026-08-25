@@ -189,3 +189,21 @@ export async function partirCuenta(
   revalidatePath("/barra");
   return { nuevoTicket: data as string };
 }
+
+export async function aumentarCantidad(
+  ticketId: string,
+  lineaId: string,
+): Promise<Falla> {
+  const sesion = await leerSesion();
+  if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
+
+  const supabase = supabaseServidor();
+  const { error } = await supabase.rpc("aumentar_cantidad", {
+    p_empleado: sesion.empleadoId,
+    p_linea: lineaId,
+    p_extra: 1,
+  });
+  if (error) return { error: error.message };
+  revalidatePath(`/cuenta/${ticketId}`);
+  return null;
+}

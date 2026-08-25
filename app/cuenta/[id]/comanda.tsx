@@ -10,6 +10,7 @@ import {
   pedirCuenta,
   moverCuenta,
   partirCuenta,
+  aumentarCantidad,
 } from "./acciones";
 
 const TIPOS_VINO = ["tinto", "blanco", "rosado", "naranja"] as const;
@@ -273,26 +274,40 @@ export default function Comanda({
           ) : (
             <ul>
               {lineas.map((l) => (
-                <li key={l.linea_id} className="border-b border-vino/10 last:border-b-0">
-                <button
-                  type="button"
-                  onClick={() => setQuitando(l)}
-                  className="flex w-full gap-3 py-2.5 text-left text-sm active:bg-rosa-claro/30"
+                <li
+                  key={l.linea_id}
+                  className="flex items-center gap-2 border-b border-vino/10 py-1.5 last:border-b-0"
                 >
-                  <span className="w-7 shrink-0 text-tinta-2 tabular-nums">
-                    {l.cantidad}×
-                  </span>
-                  <span className="flex-1">
-                    {l.producto}
-                    {l.presentacion !== "Única" && ` · ${l.presentacion}`}
-                    {(l.etiqueta || l.sabores) && (
-                      <small className="block text-xs text-tinta-2">
-                        {l.sabores ?? l.etiqueta}
-                      </small>
-                    )}
-                  </span>
-                  <span className="tabular-nums">{pesos(l.importe)}</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setQuitando(l)}
+                    className="flex flex-1 gap-3 py-1 text-left text-sm active:bg-rosa-claro/30"
+                  >
+                    <span className="w-7 shrink-0 text-tinta-2 tabular-nums">
+                      {l.cantidad}×
+                    </span>
+                    <span className="flex-1">
+                      {l.producto}
+                      {l.presentacion !== "Única" && ` · ${l.presentacion}`}
+                      {(l.etiqueta || l.sabores) && (
+                        <small className="block text-xs text-tinta-2">
+                          {l.sabores ?? l.etiqueta}
+                        </small>
+                      )}
+                    </span>
+                    <span className="tabular-nums">{pesos(l.importe)}</span>
+                  </button>
+                  <button
+                    type="button"
+                    title="Sírveles otra igual"
+                    disabled={ocupado}
+                    onClick={() =>
+                      correr(() => aumentarCantidad(ticketId, l.linea_id))
+                    }
+                    className="flex size-8 shrink-0 items-center justify-center rounded-full border border-vino/25 text-vino disabled:opacity-40"
+                  >
+                    +
+                  </button>
                 </li>
               ))}
             </ul>
