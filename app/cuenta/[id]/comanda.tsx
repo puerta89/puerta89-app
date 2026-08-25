@@ -198,50 +198,55 @@ export default function Comanda({
               }),
             )}
 
-          {categoria === "Helados" && (
-            <>
-              {TAMANOS_HELADO.map((t) => {
-                const item = catalogo.find(
-                  (i) => i.es_sabor_helado && i.presentacion === t,
-                );
-                if (!item) return null;
-                return (
-                  <Tarjeta
-                    key={t}
-                    titulo={t}
-                    abajo={`${pesos(item.precio)}${item.es_para_llevar ? " · para llevar" : ""}`}
-                    onClick={() => {
-                      setSabores([]);
-                      setPendiente({
-                        tipo: "helado",
-                        tamano: t,
-                        cuantosSabores: t === "2 Bolas" ? 2 : 1,
-                        precio: item.precio,
-                      });
-                    }}
-                  />
-                );
-              })}
-              {affogato && (
+          {categoria === "Helados" &&
+            TAMANOS_HELADO.map((t) => {
+              const item = catalogo.find(
+                (i) => i.es_sabor_helado && i.presentacion === t,
+              );
+              if (!item) return null;
+              return (
                 <Tarjeta
-                  titulo="Affogato 89"
-                  abajo={pesos(affogato.precio)}
-                  onClick={() =>
+                  key={t}
+                  titulo={t}
+                  abajo={`${pesos(item.precio)}${item.es_para_llevar ? " · para llevar" : ""}`}
+                  onClick={() => {
+                    setSabores([]);
                     setPendiente({
-                      tipo: "affogato",
-                      precio: affogato.precio,
-                      presentacionId: affogato.presentacion_id,
-                    })
-                  }
+                      tipo: "helado",
+                      tamano: t,
+                      cuantosSabores: t === "2 Bolas" ? 2 : 1,
+                      precio: item.precio,
+                    });
+                  }}
                 />
-              )}
-            </>
+              );
+            })}
+
+          {/* El Affogato vive en la categoría que tenga en el catálogo
+              (hoy es "Bebidas"), no se fija a "Helados": lo importante es
+              que siempre pregunte el sabor, sin importar dónde esté. */}
+          {affogato && categoria === affogato.categoria && (
+            <Tarjeta
+              titulo="Affogato 89"
+              abajo={pesos(affogato.precio)}
+              onClick={() =>
+                setPendiente({
+                  tipo: "affogato",
+                  precio: affogato.precio,
+                  presentacionId: affogato.presentacion_id,
+                })
+              }
+            />
           )}
 
           {categoria !== "Vinos" &&
             categoria !== "Helados" &&
             catalogo
-              .filter((i) => i.categoria === categoria)
+              .filter(
+                (i) =>
+                  i.categoria === categoria &&
+                  i.producto_id !== affogato?.producto_id,
+              )
               .map((i) => (
                 <Tarjeta
                   key={i.presentacion_id}
