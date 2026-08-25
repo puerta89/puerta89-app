@@ -278,6 +278,14 @@ export type ItemInventario = {
   consumo_dia: number;
   dias_restantes: number | null;
   sugerido: number;
+  activo: boolean;
+  // Si otros productos consumen de este (ej. "Café en grano" lo consumen
+  // Americano/Espresso/Capuccino): con lo que hay ahora, para cuántas
+  // unidades de esos alcanza; cuántas rinde UNA unidad de este insumo
+  // (lo que se configura); y sus nombres.
+  alcanza_unidades: number | null;
+  rinde_configurado: number | null;
+  vinculados: string | null;
 };
 
 export async function traerInventario(sucursalId: string) {
@@ -295,6 +303,8 @@ export async function traerInventario(sucursalId: string) {
     consumo_dia: Number(r.consumo_dia),
     dias_restantes: r.dias_restantes === null ? null : Number(r.dias_restantes),
     sugerido: Number(r.sugerido),
+    alcanza_unidades: r.alcanza_unidades === null ? null : Number(r.alcanza_unidades),
+    rinde_configurado: r.rinde_configurado === null ? null : Number(r.rinde_configurado),
   })) as ItemInventario[];
 }
 

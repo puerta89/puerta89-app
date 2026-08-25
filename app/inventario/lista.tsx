@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ItemInventario } from "@/lib/datos";
-import { fijarMinimo, registrarMerma } from "./acciones";
+import { fijarMinimo, registrarMerma, cambiarActivo, fijarRendimiento } from "./acciones";
 
 const pesos = (n: number) =>
   n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
@@ -17,15 +17,18 @@ export default function Lista({ items }: { items: ItemInventario[] }) {
   const [error, setError] = useState<string | null>(null);
   const [ocupado, empezar] = useTransition();
 
+  const activos = useMemo(() => items.filter((i) => i.activo), [items]);
+  const inactivos = useMemo(() => items.filter((i) => !i.activo), [items]);
+
   const porPedir = useMemo(
     () =>
-      items
+      activos
         .filter((i) => i.sugerido > 0 || (i.minimo > 0 && i.cantidad <= i.minimo))
         .sort((a, b) => (a.dias_restantes ?? 999) - (b.dias_restantes ?? 999)),
-    [items],
+    [activos],
   );
 
-  const mostrar = vista === "pedir" ? porPedir : items;
+  const mostrar = vista === "pedir" ? porPedir : activos;
 
   function correr(fn: () => Promise<{ error: string } | null>) {
     setError(null);
@@ -88,6 +91,7 @@ export default function Lista({ items }: { items: ItemInventario[] }) {
                       {i.nombre}
                       <span className="block text-xs text-tinta-3 text-tinta-2">
                         {i.categoria}
+                        {i.vinculados && <> · para {i.vinculados}</>}
                         {i.costo_promedio > 0 &&
                           Math.abs(i.costo_promedio - i.costo_catalogo) > 0.5 && (
                             <> · te cuesta {pesos(i.costo_promedio)}, el catálogo dice {pesos(i.costo_catalogo)}</>
@@ -108,9 +112,11 @@ export default function Lista({ items }: { items: ItemInventario[] }) {
                     <td
                       className={`px-3 py-3 text-right tabular-nums ${urgente ? "text-vino" : "text-tinta-2"}`}
                     >
-                      {i.dias_restantes === null
-                        ? "—"
-                        : `${cifra(i.dias_restantes)} d`}
+                      {i.alcanza_unidades !== null
+                        ? `${cifra(i.alcanza_unidades)} u`
+                        : i.dias_restantes === null
+                          ? "—"
+                          : `${cifra(i.dias_restantes)} d`}
                     </td>
                     <td className="px-3 py-3 text-right font-medium tabular-nums">
                       {i.sugerido > 0 ? cifra(i.sugerido) : "—"}
@@ -125,9 +131,40 @@ export default function Lista({ items }: { items: ItemInventario[] }) {
 
       <p className="text-xs text-tinta-2">
         «Al día» es lo que se consume en promedio, sacado de las ventas de las
-        últimas 4 semanas. «Alcanza» son los días que quedan a ese ritmo. Pica
-        cualquier renglón para fijarle un mínimo o registrar una merma.
+        últimas 4 semanas. «Alcanza» son los días que quedan a ese ritmo (o,
+        si es un insumo compartido, cuántas unidades más rinde). Pica
+        cualquier renglón para fijarle un mínimo, registrar una merma, o
+        desactivarlo.
       </p>
+
+      {inactivos.length > 0 && (
+        <details className="rounded-sm border border-vino/15 bg-white">
+          <summary className="cursor-pointer px-5 py-3 text-sm font-medium text-tinta-2">
+            Inactivos / de temporada ({inactivos.length})
+          </summary>
+          <div className="overflow-x-auto border-t border-vino/15">
+            <table className="w-full min-w-[420px] text-sm">
+              <tbody>
+                {inactivos.map((i) => (
+                  <tr
+                    key={i.producto_id ?? i.presentacion_id}
+                    onClick={() => setAbierto(i)}
+                    className="cursor-pointer border-b border-vino/10 last:border-b-0 active:bg-rosa-claro/25"
+                  >
+                    <td className="px-4 py-3">
+                      {i.nombre}
+                      <span className="block text-xs text-tinta-2">{i.categoria}</span>
+                    </td>
+                    <td className="px-3 py-3 text-right text-xs text-tinta-2">
+                      Toca para reactivar
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )}
 
       {error && (
         <p className="rounded-sm bg-vino/10 px-4 py-3 text-sm text-vino">{error}</p>
@@ -160,6 +197,7 @@ function Panel({
   const [cantidad, setCantidad] = useState("");
   const [motivo, setMotivo] = useState("");
   const [codigo, setCodigo] = useState("");
+  const [rinde, setRinde] = useState(String(item.rinde_configurado ?? ""));
 
   return (
     <div className="fixed inset-0 z-20 flex items-end justify-center bg-tinta/50 sm:items-center sm:p-6">
@@ -179,6 +217,39 @@ function Panel({
             Cerrar
           </button>
         </div>
+
+        {item.vinculados && (
+          <div className="flex flex-col gap-3 border-b border-vino/15 p-4">
+            <p className="text-sm font-medium">
+              Se usa para: {item.vinculados}
+            </p>
+            <label className="flex flex-col gap-1.5 text-sm">
+              ¿Cuántas unidades rinde 1 {item.unidad}?
+              <input
+                inputMode="decimal"
+                value={rinde}
+                onChange={(e) => setRinde(e.target.value)}
+                placeholder="ej. 20"
+                className="rounded-sm border border-vino/25 px-3 py-3 tabular-nums outline-none focus:border-vino"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={ocupado || !(Number(rinde) > 0)}
+              onClick={() =>
+                correr(() => fijarRendimiento(item.producto_id!, Number(rinde)))
+              }
+              className="rounded-sm border-2 border-vino px-4 py-3 text-sm font-medium text-vino disabled:opacity-50"
+            >
+              Guardar el rendimiento
+            </button>
+            {item.alcanza_unidades !== null && (
+              <p className="text-xs text-tinta-2">
+                Con lo que hay ahora, alcanza para {cifra(item.alcanza_unidades)}.
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-col gap-3 border-b border-vino/15 p-4">
           <label className="flex flex-col gap-1.5 text-sm">
@@ -253,6 +324,27 @@ function Panel({
             {ocupado ? "Guardando..." : "Registrar la merma"}
           </button>
         </div>
+
+        {item.producto_id && (
+          <div className="flex flex-col gap-2 border-t border-vino/15 p-4">
+            <p className="text-sm font-medium">
+              {item.activo ? "Está activo" : "Está inactivo"}
+            </p>
+            <p className="text-xs text-tinta-2">
+              {item.activo
+                ? "Aparece en el menú y en este inventario. Desactívalo si ya se acabó la temporada."
+                : "Ya no aparece en el menú ni aquí arriba. Reactívalo cuando vuelva la temporada."}
+            </p>
+            <button
+              type="button"
+              disabled={ocupado}
+              onClick={() => correr(() => cambiarActivo(item.producto_id!, !item.activo))}
+              className="rounded-sm border-2 border-vino px-4 py-3 text-sm font-medium text-vino disabled:opacity-50"
+            >
+              {item.activo ? "Desactivar (fin de temporada)" : "Reactivar"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

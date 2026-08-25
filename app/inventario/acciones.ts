@@ -88,6 +88,39 @@ export async function registrarCompra(
   return null;
 }
 
+export async function cambiarActivo(productoId: string, activo: boolean): Promise<Falla> {
+  const { sesion, falla } = await jefe();
+  if (!sesion) return { error: falla! };
+
+  const supabase = supabaseServidor();
+  const { error } = await supabase.rpc("cambiar_activo_producto", {
+    p_empleado: sesion.empleadoId,
+    p_producto: productoId,
+    p_activo: activo,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/inventario");
+  return null;
+}
+
+/** Para un insumo compartido (ej. "Café en grano"): cuántas unidades
+ * (cafés) rinde una unidad del insumo (una bolsa). Se aplica a todo lo
+ * que consuma de ese insumo. */
+export async function fijarRendimiento(insumoId: string, rinde: number): Promise<Falla> {
+  const { sesion, falla } = await jefe();
+  if (!sesion) return { error: falla! };
+
+  const supabase = supabaseServidor();
+  const { error } = await supabase.rpc("fijar_rendimiento_insumo", {
+    p_empleado: sesion.empleadoId,
+    p_insumo: insumoId,
+    p_rinde: rinde,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/inventario");
+  return null;
+}
+
 export async function nuevoProveedor(nombre: string): Promise<Falla> {
   const { sesion, falla } = await jefe();
   if (!sesion) return { error: falla! };
