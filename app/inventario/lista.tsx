@@ -19,6 +19,13 @@ export default function Lista({ items }: { items: ItemInventario[] }) {
 
   const activos = useMemo(() => items.filter((i) => i.activo), [items]);
   const inactivos = useMemo(() => items.filter((i) => !i.activo), [items]);
+  // El merch (gorras, hoodies, playeras por talla) se separa del resto:
+  // no se agota al mismo ritmo que vino/helado y mezclado confunde.
+  const merch = useMemo(() => activos.filter((i) => i.categoria === "Merch"), [activos]);
+  const activosSinMerch = useMemo(
+    () => activos.filter((i) => i.categoria !== "Merch"),
+    [activos],
+  );
 
   const porPedir = useMemo(
     () =>
@@ -28,7 +35,7 @@ export default function Lista({ items }: { items: ItemInventario[] }) {
     [activos],
   );
 
-  const mostrar = vista === "pedir" ? porPedir : activos;
+  const mostrar = vista === "pedir" ? porPedir : activosSinMerch;
 
   function correr(fn: () => Promise<{ error: string } | null>) {
     setError(null);
@@ -66,66 +73,13 @@ export default function Lista({ items }: { items: ItemInventario[] }) {
             : "Todavía no hay nada en el inventario."}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-sm border border-vino/15 bg-white">
-          <table className="w-full min-w-[560px] text-sm">
-            <thead>
-              <tr className="border-b border-vino/15 text-left text-xs tracking-wider text-tinta-2 uppercase">
-                <th className="px-4 py-3 font-medium">Producto</th>
-                <th className="px-3 py-3 text-right font-medium">Hay</th>
-                <th className="px-3 py-3 text-right font-medium">Al día</th>
-                <th className="px-3 py-3 text-right font-medium">Alcanza</th>
-                <th className="px-3 py-3 text-right font-medium">Pedir</th>
-              </tr>
-            </thead>
-            <tbody>
-              {mostrar.map((i) => {
-                const bajo = i.minimo > 0 && i.cantidad <= i.minimo;
-                const urgente = i.dias_restantes !== null && i.dias_restantes <= 3;
-                return (
-                  <tr
-                    key={i.producto_id ?? i.presentacion_id}
-                    onClick={() => setAbierto(i)}
-                    className="cursor-pointer border-b border-vino/10 last:border-b-0 active:bg-rosa-claro/25"
-                  >
-                    <td className="px-4 py-3">
-                      {i.nombre}
-                      <span className="block text-xs text-tinta-3 text-tinta-2">
-                        {i.categoria}
-                        {i.vinculados && <> · para {i.vinculados}</>}
-                        {i.costo_promedio > 0 &&
-                          Math.abs(i.costo_promedio - i.costo_catalogo) > 0.5 && (
-                            <> · te cuesta {pesos(i.costo_promedio)}, el catálogo dice {pesos(i.costo_catalogo)}</>
-                          )}
-                      </span>
-                    </td>
-                    <td
-                      className={`px-3 py-3 text-right tabular-nums ${
-                        i.cantidad < 0 ? "text-vino" : bajo ? "text-[#9C6A1E]" : ""
-                      }`}
-                    >
-                      {cifra(i.cantidad)}
-                      <span className="block text-xs text-tinta-2">{i.unidad}</span>
-                    </td>
-                    <td className="px-3 py-3 text-right tabular-nums text-tinta-2">
-                      {i.consumo_dia > 0 ? cifra(i.consumo_dia) : "—"}
-                    </td>
-                    <td
-                      className={`px-3 py-3 text-right tabular-nums ${urgente ? "text-vino" : "text-tinta-2"}`}
-                    >
-                      {i.alcanza_unidades !== null
-                        ? `${cifra(i.alcanza_unidades)} u`
-                        : i.dias_restantes === null
-                          ? "—"
-                          : `${cifra(i.dias_restantes)} d`}
-                    </td>
-                    <td className="px-3 py-3 text-right font-medium tabular-nums">
-                      {i.sugerido > 0 ? cifra(i.sugerido) : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <TablaItems items={mostrar} onAbrir={setAbierto} />
+      )}
+
+      {vista === "todo" && merch.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium text-tinta-2">Merch</p>
+          <TablaItems items={merch} onAbrir={setAbierto} />
         </div>
       )}
 
@@ -178,6 +132,78 @@ export default function Lista({ items }: { items: ItemInventario[] }) {
           ocupado={ocupado}
         />
       )}
+    </div>
+  );
+}
+
+function TablaItems({
+  items,
+  onAbrir,
+}: {
+  items: ItemInventario[];
+  onAbrir: (item: ItemInventario) => void;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-sm border border-vino/15 bg-white">
+      <table className="w-full min-w-[560px] text-sm">
+        <thead>
+          <tr className="border-b border-vino/15 text-left text-xs tracking-wider text-tinta-2 uppercase">
+            <th className="px-4 py-3 font-medium">Producto</th>
+            <th className="px-3 py-3 text-right font-medium">Hay</th>
+            <th className="px-3 py-3 text-right font-medium">Al día</th>
+            <th className="px-3 py-3 text-right font-medium">Alcanza</th>
+            <th className="px-3 py-3 text-right font-medium">Pedir</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((i) => {
+            const bajo = i.minimo > 0 && i.cantidad <= i.minimo;
+            const urgente = i.dias_restantes !== null && i.dias_restantes <= 3;
+            return (
+              <tr
+                key={i.producto_id ?? i.presentacion_id}
+                onClick={() => onAbrir(i)}
+                className="cursor-pointer border-b border-vino/10 last:border-b-0 active:bg-rosa-claro/25"
+              >
+                <td className="px-4 py-3">
+                  {i.nombre}
+                  <span className="block text-xs text-tinta-3 text-tinta-2">
+                    {i.categoria}
+                    {i.vinculados && <> · para {i.vinculados}</>}
+                    {i.costo_promedio > 0 &&
+                      Math.abs(i.costo_promedio - i.costo_catalogo) > 0.5 && (
+                        <> · te cuesta {pesos(i.costo_promedio)}, el catálogo dice {pesos(i.costo_catalogo)}</>
+                      )}
+                  </span>
+                </td>
+                <td
+                  className={`px-3 py-3 text-right tabular-nums ${
+                    i.cantidad < 0 ? "text-vino" : bajo ? "text-[#9C6A1E]" : ""
+                  }`}
+                >
+                  {cifra(i.cantidad)}
+                  <span className="block text-xs text-tinta-2">{i.unidad}</span>
+                </td>
+                <td className="px-3 py-3 text-right tabular-nums text-tinta-2">
+                  {i.consumo_dia > 0 ? cifra(i.consumo_dia) : "—"}
+                </td>
+                <td
+                  className={`px-3 py-3 text-right tabular-nums ${urgente ? "text-vino" : "text-tinta-2"}`}
+                >
+                  {i.alcanza_unidades !== null
+                    ? `${cifra(i.alcanza_unidades)} u`
+                    : i.dias_restantes === null
+                      ? "—"
+                      : `${cifra(i.dias_restantes)} d`}
+                </td>
+                <td className="px-3 py-3 text-right font-medium tabular-nums">
+                  {i.sugerido > 0 ? cifra(i.sugerido) : "—"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
