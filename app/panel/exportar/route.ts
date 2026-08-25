@@ -1,0 +1,211 @@
+import { NextRequest, NextResponse } from "next/server";
+import ExcelJS from "exceljs";
+import { leerSesion } from "@/lib/sesion";
+import {
+  traerPanel,
+  traerDesglose,
+  traerBancosPanel,
+  traerSucursalesPanel,
+  traerMeses,
+  traerMesesGrupo,
+  traerGastos,
+  hoyEnMexico,
+  type Desglose,
+} from "@/lib/datos";
+
+// Antes de que exista el negocio: sirve como "sin piso de fecha" para
+// cuando no se elige ningún rango — mismo valor que usa /panel.
+const SIN_PISO = "2000-01-01";
+
+const PESOS = '"$"#,##0.00';
+
+function hojaDesglose(wb: ExcelJS.Workbook, titulo: string, datos: Desglose[]) {
+  if (datos.length === 0) return;
+  const h = wb.addWorksheet(titulo);
+  h.columns = [
+    { header: titulo, key: "etiqueta", width: 30 },
+    { header: "Venta", key: "venta", width: 16 },
+    { header: "Utilidad", key: "utilidad", width: 16 },
+    { header: "Unidades", key: "unidades", width: 12 },
+  ];
+  h.addRows(datos);
+  h.getColumn("venta").numFmt = PESOS;
+  h.getColumn("utilidad").numFmt = PESOS;
+  h.getRow(1).font = { bold: true };
+}
+
+export async function GET(request: NextRequest) {
+  const sesion = await leerSesion();
+  if (!sesion) {
+    return NextResponse.json({ error: "Tu sesión venció. Vuelve a entrar." }, { status: 401 });
+  }
+  if (sesion.rol === "mesero") {
+    return NextResponse.json({ error: "Esto solo lo puede ver el dueño o el gerente." }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const hoy = hoyEnMexico();
+  const desde = searchParams.get("desde") || SIN_PISO;
+  const hasta = searchParams.get("hasta") || hoy;
+  const esTodo = desde === SIN_PISO;
+
+  const [resumen, categorias, productos, meseros, horas, bancos, sucursales, meses, mesesGrupo, gastos] =
+    await Promise.all([
+      traerPanel(sesion.sucursalId, desde, hasta),
+      traerDesglose(sesion.sucursalId, desde, hasta, "categoria"),
+      traerDesglose(sesion.sucursalId, desde, hasta, "producto"),
+      traerDesglose(sesion.sucursalId, desde, hasta, "mesero"),
+      traerDesglose(sesion.sucursalId, desde, hasta, "hora"),
+      traerBancosPanel(sesion.sucursalId, desde, hasta),
+      traerSucursalesPanel(desde, hasta),
+      traerMeses(sesion.sucursalId),
+      traerMesesGrupo(sesion.sucursalId),
+      traerGastos(sesion.sucursalId, desde, hasta),
+    ]);
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "Puerta 89";
+  wb.created = new Date();
+
+  // ── Resumen ──────────────────────────────────────────────────────────
+  const hResumen = wb.addWorksheet("Resumen");
+  hResumen.columns = [
+    { header: "Concepto", key: "c", width: 26 },
+    { header: "Valor", key: "v", width: 20 },
+  ];
+  hResumen.addRows([
+    { c: "Sucursal", v: sesion.sucursalNombre },
+    { c: "Periodo", v: esTodo ? "Todo el histórico" : `${desde} al ${hasta}` },
+    { c: "" , v: "" },
+    { c: "Venta", v: resumen.ventas },
+    { c: "Costo del producto", v: resumen.costo },
+    { c: "Utilidad bruta", v: resumen.utilidad_bruta },
+    { c: "Margen (%)", v: resumen.margen },
+    { c: "Mermas", v: resumen.mermas },
+    { c: "Gastos", v: resumen.gastos },
+    { c: "Utilidad real", v: resumen.utilidad_real },
+    { c: "" , v: "" },
+    { c: "Tickets", v: resumen.tickets },
+    { c: "Ticket promedio", v: resumen.ticket_promedio },
+    { c: "Permanencia promedio (min)", v: resumen.permanencia_min },
+    { c: "Efectivo", v: resumen.efectivo },
+    { c: "Tarjeta", v: resumen.tarjeta },
+    { c: "Propinas", v: resumen.propinas },
+    { c: "Descuentos", v: resumen.descuentos },
+    { c: "Cancelado", v: resumen.cancelado },
+  ]);
+  [4, 5, 6, 8, 9, 10, 15, 16, 17, 18, 19].forEach((fila) => {
+    hResumen.getCell(`B${fila}`).numFmt = PESOS;
+  });
+  hResumen.getRow(1).font = { bold: true };
+
+  // ── Desgloses ────────────────────────────────────────────────────────
+  hojaDesglose(wb, "Por categoría", categorias);
+  hojaDesglose(wb, "Por producto", productos);
+  hojaDesglose(wb, "Por mesero", meseros);
+  hojaDesglose(
+    wb,
+    "Por hora",
+    [...horas].sort((a, b) => a.etiqueta.localeCompare(b.etiqueta)),
+  );
+
+  // ── Bancos ───────────────────────────────────────────────────────────
+  if (bancos.length > 0) {
+    const h = wb.addWorksheet("Bancos");
+    h.columns = [
+      { header: "Banco", key: "banco", width: 10 },
+      { header: "Zona", key: "zona", width: 18 },
+      { header: "Cuentas", key: "cuentas", width: 10 },
+      { header: "Venta", key: "venta", width: 16 },
+      { header: "Permanencia (min)", key: "permanencia_min", width: 18 },
+    ];
+    h.addRows(bancos);
+    h.getColumn("venta").numFmt = PESOS;
+    h.getRow(1).font = { bold: true };
+  }
+
+  // ── Gastos del periodo ───────────────────────────────────────────────
+  if (gastos.length > 0) {
+    const h = wb.addWorksheet("Gastos");
+    h.columns = [
+      { header: "Fecha", key: "fecha", width: 14 },
+      { header: "Categoría", key: "categoria", width: 18 },
+      { header: "Concepto", key: "concepto", width: 26 },
+      { header: "Monto", key: "monto", width: 14 },
+      { header: "Recurrente", key: "recurrente", width: 12 },
+    ];
+    h.addRows(
+      gastos.map((g) => ({ ...g, recurrente: g.recurrente ? "Sí" : "No" })),
+    );
+    h.getColumn("monto").numFmt = PESOS;
+    h.getRow(1).font = { bold: true };
+  }
+
+  // ── Meses (estacionalidad, siempre todo el histórico) ───────────────
+  if (meses.length > 0) {
+    const h = wb.addWorksheet("Meses");
+    h.columns = [
+      { header: "Mes", key: "mes", width: 12 },
+      { header: "Ventas", key: "ventas", width: 16 },
+      { header: "Utilidad", key: "utilidad", width: 16 },
+      { header: "Tickets", key: "tickets", width: 10 },
+      { header: "Ticket promedio", key: "ticket_promedio", width: 16 },
+    ];
+    h.addRows(meses);
+    h.getColumn("ventas").numFmt = PESOS;
+    h.getColumn("utilidad").numFmt = PESOS;
+    h.getColumn("ticket_promedio").numFmt = PESOS;
+    h.getRow(1).font = { bold: true };
+  }
+
+  // ── Estacionalidad por grupo de vino/helado ─────────────────────────
+  if (mesesGrupo.length > 0) {
+    const h = wb.addWorksheet("Estacionalidad");
+    const grupos = [...new Set(mesesGrupo.map((m) => m.grupo))];
+    const mesesUnicos = [...new Set(mesesGrupo.map((m) => m.mes))].sort();
+    const porCelda = new Map(mesesGrupo.map((m) => [`${m.mes}|${m.grupo}`, m.ventas]));
+    h.columns = [
+      { header: "Mes", key: "mes", width: 12 },
+      ...grupos.map((g) => ({ header: g, key: g, width: 14 })),
+    ];
+    mesesUnicos.forEach((mes) => {
+      const fila: Record<string, unknown> = { mes };
+      grupos.forEach((g) => {
+        fila[g] = porCelda.get(`${mes}|${g}`) ?? 0;
+      });
+      h.addRow(fila);
+    });
+    grupos.forEach((g) => {
+      h.getColumn(g).numFmt = PESOS;
+    });
+    h.getRow(1).font = { bold: true };
+  }
+
+  // ── Las dos sucursales juntas (solo si CDMX ya está activa) ─────────
+  if (sucursales.length > 1) {
+    const h = wb.addWorksheet("Sucursales");
+    h.columns = [
+      { header: "Sucursal", key: "sucursal", width: 14 },
+      { header: "Ventas", key: "ventas", width: 16 },
+      { header: "Utilidad", key: "utilidad", width: 16 },
+      { header: "Tickets", key: "tickets", width: 10 },
+      { header: "Ticket promedio", key: "ticket_promedio", width: 16 },
+    ];
+    h.addRows(sucursales);
+    h.getColumn("ventas").numFmt = PESOS;
+    h.getColumn("utilidad").numFmt = PESOS;
+    h.getColumn("ticket_promedio").numFmt = PESOS;
+    h.getRow(1).font = { bold: true };
+  }
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const rangoArchivo = esTodo ? "todo" : `${desde}_${hasta}`;
+  const nombreArchivo = `puerta89-${sesion.sucursalNombre.toLowerCase()}-${rangoArchivo}.xlsx`;
+
+  return new NextResponse(buffer as unknown as BodyInit, {
+    headers: {
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename="${nombreArchivo}"`,
+    },
+  });
+}

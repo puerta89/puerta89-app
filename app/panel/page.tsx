@@ -89,12 +89,20 @@ export default async function Panel({ searchParams }: PageProps<"/panel">) {
             </p>
           </div>
         </div>
-        <Link
-          href="/gastos"
-          className="rounded-sm border border-crema/40 px-4 py-2 text-sm"
-        >
-          Gastos
-        </Link>
+        <div className="flex items-center gap-2">
+          <a
+            href={`/panel/exportar?desde=${desde}&hasta=${hasta}`}
+            className="rounded-sm border border-crema/40 px-4 py-2 text-sm"
+          >
+            Descargar Excel
+          </a>
+          <Link
+            href="/gastos"
+            className="rounded-sm border border-crema/40 px-4 py-2 text-sm"
+          >
+            Gastos
+          </Link>
+        </div>
       </header>
 
       <div className="mx-auto flex max-w-4xl flex-col gap-5 px-4 py-5">
