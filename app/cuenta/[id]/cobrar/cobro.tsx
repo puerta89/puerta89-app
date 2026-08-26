@@ -12,14 +12,26 @@ import {
 const pesos = (n: number) =>
   n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 
+/** Reparte un total entre N personas, en centavos, para que sume exacto
+ * (el resto de centavos se reparte entre los primeros, no se lo lleva
+ * todo el último). */
+function dividirEntre(total: number, n: number): number[] {
+  const centavos = Math.round(total * 100);
+  const base = Math.floor(centavos / n);
+  const resto = centavos - base * n;
+  return Array.from({ length: n }, (_, i) => (base + (i < resto ? 1 : 0)) / 100);
+}
+
 export default function Cobro({
   ticketId,
   total,
   pagos,
+  personas,
 }: {
   ticketId: string;
   total: number;
   pagos: Pago[];
+  personas: number;
 }) {
   const router = useRouter();
   const pagado = pagos.reduce((s, p) => s + p.monto, 0);
@@ -29,6 +41,35 @@ export default function Cobro({
   const [propina, setPropina] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [ocupado, empezar] = useTransition();
+
+  // ── Dividir la cuenta entre varias personas ──────────────────────────
+  const [entrePersonas, setEntrePersonas] = useState(personas > 1 ? String(personas) : "");
+  const [plan, setPlan] = useState<number[] | null>(null);
+  const [pagadas, setPagadas] = useState<Set<number>>(new Set());
+
+  function calcularDivision() {
+    const n = Math.round(Number(entrePersonas));
+    if (!Number.isFinite(n) || n < 2) {
+      setError("Dividir entre cuántas personas — al menos 2.");
+      return;
+    }
+    setError(null);
+    setPlan(dividirEntre(falta, n));
+    setPagadas(new Set());
+  }
+
+  function cobrarParte(i: number, metodo: "efectivo" | "tarjeta") {
+    if (!plan) return;
+    setError(null);
+    empezar(async () => {
+      const r = await agregarPago(ticketId, metodo, plan[i], null);
+      if (r?.error) setError(r.error);
+      else {
+        setPagadas((p) => new Set(p).add(i));
+        router.refresh();
+      }
+    });
+  }
 
   function correr(fn: () => Promise<{ error: string } | null>, alCerrar?: () => void) {
     setError(null);
@@ -99,8 +140,83 @@ export default function Cobro({
 
       {falta > 0 && (
         <div className="flex flex-col gap-3 rounded-sm border border-vino/15 bg-white px-5 py-5">
-          <label className="text-sm text-tinta-2" htmlFor="monto">
-            ¿Cuánto? Si lo dejas vacío se cobra todo lo que falta.
+          <p className="text-sm text-tinta-2">¿Se divide entre varias personas?</p>
+          <div className="flex gap-2">
+            <input
+              inputMode="numeric"
+              value={entrePersonas}
+              onChange={(e) => setEntrePersonas(e.target.value)}
+              placeholder="ej. 3"
+              className="w-24 rounded-sm border border-vino/25 px-3 py-2.5 text-sm tabular-nums outline-none focus:border-vino"
+            />
+            <button
+              type="button"
+              onClick={calcularDivision}
+              className="rounded-sm border border-vino/25 px-4 py-2.5 text-sm text-vino"
+            >
+              Dividir
+            </button>
+            {plan && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPlan(null);
+                  setPagadas(new Set());
+                }}
+                className="rounded-sm px-2 text-sm text-vino underline"
+              >
+                Quitar división
+              </button>
+            )}
+          </div>
+
+          {plan && (
+            <div className="flex flex-col gap-2 border-t border-vino/10 pt-3">
+              {plan.map((parte, i) => {
+                const pagada = pagadas.has(i);
+                return (
+                  <div
+                    key={i}
+                    className={`flex items-center justify-between gap-3 rounded-sm border px-3 py-2.5 text-sm ${
+                      pagada ? "border-[#556B4A]/30 bg-[#556B4A]/10" : "border-vino/15"
+                    }`}
+                  >
+                    <span className="text-tinta-2">Persona {i + 1}</span>
+                    <span className="tabular-nums font-medium">{pesos(parte)}</span>
+                    {pagada ? (
+                      <span className="text-xs text-[#556B4A]">Pagó ✓</span>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={ocupado}
+                          onClick={() => cobrarParte(i, "efectivo")}
+                          className="rounded-sm border border-vino/25 px-3 py-1.5 text-xs text-vino disabled:opacity-40"
+                        >
+                          Efectivo
+                        </button>
+                        <button
+                          type="button"
+                          disabled={ocupado}
+                          onClick={() => cobrarParte(i, "tarjeta")}
+                          className="rounded-sm bg-vino px-3 py-1.5 text-xs text-crema disabled:opacity-40"
+                        >
+                          Tarjeta
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <p className="text-xs text-tinta-2">
+                Cada quien paga lo suyo por separado — se van sumando abajo, igual que
+                cualquier otro pago.
+              </p>
+            </div>
+          )}
+
+          <label className="border-t border-vino/10 pt-3 text-sm text-tinta-2" htmlFor="monto">
+            O cobra un monto libre. Si lo dejas vacío se cobra todo lo que falta.
           </label>
           <input
             id="monto"

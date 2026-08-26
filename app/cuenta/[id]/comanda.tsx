@@ -7,6 +7,7 @@ import {
   agregarLinea,
   abrirBotella,
   cancelarLinea,
+  cancelarCuenta,
   pedirCuenta,
   moverCuenta,
   partirCuenta,
@@ -81,6 +82,8 @@ export default function Comanda({
   const [aPartir, setAPartir] = useState<string[]>([]);
   const [codigoJefe, setCodigoJefe] = useState("");
   const [motivo, setMotivo] = useState("");
+  const [cancelandoMesa, setCancelandoMesa] = useState(false);
+  const [motivoCancelar, setMotivoCancelar] = useState("");
   const [ocupado, empezar] = useTransition();
 
   const sabores_helado = useMemo(
@@ -368,7 +371,7 @@ export default function Comanda({
           )}
         </div>
 
-        {lineas.length > 0 && (
+        {lineas.length > 0 ? (
           <div className="flex gap-2 px-4 pb-4">
             {estado === "abierto" && (
               <button
@@ -388,6 +391,19 @@ export default function Comanda({
               Cobrar
             </button>
           </div>
+        ) : (
+          rol !== "mesero" &&
+          estado === "abierto" && (
+            <div className="px-4 pb-4">
+              <button
+                type="button"
+                onClick={() => setCancelandoMesa(true)}
+                className="w-full rounded-sm border border-vino/30 px-4 py-3 text-sm text-vino"
+              >
+                Cancelar esta mesa (se abrió por error)
+              </button>
+            </div>
+          )
         )}
       </section>
 
@@ -642,6 +658,55 @@ export default function Comanda({
               className="rounded-sm bg-vino px-4 py-3.5 font-medium text-crema disabled:opacity-40"
             >
               {ocupado ? "Quitando..." : "Quitar"}
+            </button>
+          </div>
+        </Hoja>
+      )}
+
+      {/* ─────────── CANCELAR LA MESA (se abrió por error) ─────────── */}
+      {cancelandoMesa && (
+        <Hoja
+          titulo="Cancelar esta mesa"
+          sub="No se cobró nada — el banco queda libre"
+          cerrar={() => {
+            setCancelandoMesa(false);
+            setMotivoCancelar("");
+          }}
+        >
+          <div className="flex flex-col gap-4 p-4">
+            <label className="flex flex-col gap-1.5 text-sm">
+              ¿Por qué?
+              <input
+                value={motivoCancelar}
+                onChange={(e) => setMotivoCancelar(e.target.value)}
+                placeholder="Se abrió sin querer, mesa vacía..."
+                className="rounded-sm border border-vino/25 px-3 py-3 outline-none focus:border-vino"
+              />
+            </label>
+
+            <p className="text-xs text-tinta-2">
+              No se borra nada: queda anotado quién la canceló y por qué. No
+              cuenta como venta.
+            </p>
+
+            <button
+              type="button"
+              disabled={ocupado || !motivoCancelar.trim()}
+              onClick={() =>
+                empezar(async () => {
+                  setError(null);
+                  const r = await cancelarCuenta(ticketId, motivoCancelar);
+                  if (r?.error) setError(r.error);
+                  else {
+                    setCancelandoMesa(false);
+                    setMotivoCancelar("");
+                    router.push("/barra");
+                  }
+                })
+              }
+              className="rounded-sm bg-vino px-4 py-3.5 font-medium text-crema disabled:opacity-40"
+            >
+              {ocupado ? "Cancelando..." : "Cancelar la mesa"}
             </button>
           </div>
         </Hoja>

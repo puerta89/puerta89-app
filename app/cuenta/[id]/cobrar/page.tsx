@@ -29,6 +29,7 @@ export default async function Cobrar({
 
   const [lineas, pagos] = await Promise.all([traerLineas(id), traerPagos(id)]);
   const total = lineas.reduce((s, l) => s + l.importe, 0);
+  const personas: number = suyos[0].personas ?? 1;
 
   return (
     <main className="min-h-dvh bg-crema">
@@ -53,7 +54,7 @@ export default async function Cobrar({
       </header>
 
       <div className="px-4 py-6">
-        <Cobro ticketId={id} total={total} pagos={pagos} />
+        <Cobro ticketId={id} total={total} pagos={pagos} personas={personas} />
       </div>
     </main>
   );
