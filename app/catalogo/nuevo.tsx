@@ -2,10 +2,21 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { Categoria } from "@/lib/datos";
-import { crearVino, crearSaborHelado, crearSimple } from "./acciones";
+import type { Categoria, Insumo } from "@/lib/datos";
+import { crearVino, crearSaborHelado, crearSimple, type IngredienteReceta } from "./acciones";
 
 type Tipo = "vino" | "helado" | "simple";
+
+const UNIDADES = ["pieza", "kg", "gramo", "litro", "mililitro", "botella", "bolsa"];
+
+type FilaIngrediente = {
+  clave: number;
+  modo: "existente" | "nuevo";
+  insumoId: string;
+  nombreNuevo: string;
+  unidadNueva: string;
+  cantidad: string;
+};
 
 const PRECIOS_VINO: Record<string, { copa: number; botella: number }> = {
   Tinto: { copa: 200, botella: 800 },
@@ -17,7 +28,13 @@ const PRECIOS_VINO: Record<string, { copa: number; botella: number }> = {
 const pesos = (n: number) =>
   n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 
-export default function Nuevo({ categorias }: { categorias: Categoria[] }) {
+export default function Nuevo({
+  categorias,
+  insumos,
+}: {
+  categorias: Categoria[];
+  insumos: Insumo[];
+}) {
   const router = useRouter();
   const [tipo, setTipo] = useState<Tipo>("vino");
   const [error, setError] = useState<string | null>(null);
@@ -95,10 +112,11 @@ export default function Nuevo({ categorias }: { categorias: Categoria[] }) {
         {tipo === "simple" && (
           <FormSimple
             categorias={categorias}
+            insumos={insumos}
             ocupado={ocupado}
-            onCrear={(nombre, categoriaId, precio, costo) =>
+            onCrear={(nombre, categoriaId, precio, costo, ingredientes) =>
               correr(
-                () => crearSimple(nombre, categoriaId, precio, costo),
+                () => crearSimple(nombre, categoriaId, precio, costo, ingredientes),
                 `Se agregó "${nombre}" al menú.`,
               )
             }
@@ -241,27 +259,87 @@ function FormHelado({
   );
 }
 
+let siguienteClave = 1;
+
 function FormSimple({
   categorias,
+  insumos,
   ocupado,
   onCrear,
 }: {
   categorias: Categoria[];
+  insumos: Insumo[];
   ocupado: boolean;
-  onCrear: (nombre: string, categoriaId: string, precio: number, costo: number) => void;
+  onCrear: (
+    nombre: string,
+    categoriaId: string,
+    precio: number,
+    costo: number,
+    ingredientes: IngredienteReceta[],
+  ) => void;
 }) {
   const [nombre, setNombre] = useState("");
   const [categoriaId, setCategoriaId] = useState(categorias[0]?.id ?? "");
   const [precio, setPrecio] = useState("");
   const [costo, setCosto] = useState("");
+  const [ingredientes, setIngredientes] = useState<FilaIngrediente[]>([]);
+
+  function agregarIngrediente() {
+    setIngredientes((prev) => [
+      ...prev,
+      {
+        clave: siguienteClave++,
+        modo: insumos.length > 0 ? "existente" : "nuevo",
+        insumoId: insumos[0]?.id ?? "",
+        nombreNuevo: "",
+        unidadNueva: "pieza",
+        cantidad: "",
+      },
+    ]);
+  }
+
+  function quitarIngrediente(clave: number) {
+    setIngredientes((prev) => prev.filter((f) => f.clave !== clave));
+  }
+
+  function cambiarIngrediente(clave: number, cambios: Partial<FilaIngrediente>) {
+    setIngredientes((prev) =>
+      prev.map((f) => (f.clave === clave ? { ...f, ...cambios } : f)),
+    );
+  }
+
+  const ingredientesValidos = ingredientes.every((f) => {
+    if (!(Number(f.cantidad) > 0)) return false;
+    return f.modo === "existente" ? !!f.insumoId : f.nombreNuevo.trim().length > 0;
+  });
+
   const valido =
-    nombre.trim().length > 0 && categoriaId && Number(precio) > 0 && Number(costo) >= 0;
+    nombre.trim().length > 0 &&
+    categoriaId &&
+    Number(precio) > 0 &&
+    Number(costo) >= 0 &&
+    ingredientesValidos;
+
+  function enviar() {
+    const lista: IngredienteReceta[] = ingredientes.map((f) =>
+      f.modo === "existente"
+        ? { insumo_id: f.insumoId, cantidad: Number(f.cantidad) }
+        : {
+            insumo_nombre: f.nombreNuevo.trim(),
+            insumo_unidad: f.unidadNueva,
+            cantidad: Number(f.cantidad),
+          },
+    );
+    onCrear(nombre.trim(), categoriaId, Number(precio), Number(costo), lista);
+    setIngredientes([]);
+  }
 
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs text-tinta-2">
         Para lo que se vende tal cual (una bebida, un snack, algo de merch sin
-        tallas...) sin nada especial que descontar.
+        tallas...), o algo que lleva varios ingredientes de inventario (por
+        ejemplo un botanero que lleva embutido, arúgula y aceite preparado).
       </p>
 
       <label className="flex flex-col gap-1.5 text-sm">
@@ -311,10 +389,107 @@ function FormSimple({
         />
       </label>
 
+      <div className="flex flex-col gap-2 border-t border-vino/15 pt-3">
+        <p className="text-sm font-medium">
+          Ingredientes de inventario (opcional)
+        </p>
+        <p className="text-xs text-tinta-2">
+          Agrega los que quieras — cada uno se resta solo cuando se venda esto.
+          Si un ingrediente todavía no existe, escribe su nombre y elige en qué
+          se mide; se crea al guardar.
+        </p>
+
+        {ingredientes.map((f) => (
+          <div key={f.clave} className="flex flex-col gap-2 rounded-sm border border-vino/15 p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => cambiarIngrediente(f.clave, { modo: "existente" })}
+                  className={`rounded-full px-3 py-1.5 text-xs ${
+                    f.modo === "existente"
+                      ? "bg-vino text-crema"
+                      : "border border-vino/25 text-vino"
+                  }`}
+                >
+                  Ya existe
+                </button>
+                <button
+                  type="button"
+                  onClick={() => cambiarIngrediente(f.clave, { modo: "nuevo" })}
+                  className={`rounded-full px-3 py-1.5 text-xs ${
+                    f.modo === "nuevo" ? "bg-vino text-crema" : "border border-vino/25 text-vino"
+                  }`}
+                >
+                  Es nuevo
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => quitarIngrediente(f.clave)}
+                className="text-xs text-vino underline"
+              >
+                Quitar
+              </button>
+            </div>
+
+            {f.modo === "existente" ? (
+              <select
+                value={f.insumoId}
+                onChange={(e) => cambiarIngrediente(f.clave, { insumoId: e.target.value })}
+                className="rounded-sm border border-vino/25 px-3 py-2.5 text-sm outline-none focus:border-vino"
+              >
+                {insumos.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.nombre} ({i.categoria})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  value={f.nombreNuevo}
+                  onChange={(e) => cambiarIngrediente(f.clave, { nombreNuevo: e.target.value })}
+                  placeholder="ej. Arúgula"
+                  className="flex-1 rounded-sm border border-vino/25 px-3 py-2.5 text-sm outline-none focus:border-vino"
+                />
+                <select
+                  value={f.unidadNueva}
+                  onChange={(e) => cambiarIngrediente(f.clave, { unidadNueva: e.target.value })}
+                  className="rounded-sm border border-vino/25 px-2 py-2.5 text-sm outline-none focus:border-vino"
+                >
+                  {UNIDADES.map((u) => (
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <input
+              inputMode="decimal"
+              value={f.cantidad}
+              onChange={(e) => cambiarIngrediente(f.clave, { cantidad: e.target.value })}
+              placeholder="Cuánto se usa por venta, ej. 0.05"
+              className="rounded-sm border border-vino/25 px-3 py-2.5 text-sm tabular-nums outline-none focus:border-vino"
+            />
+          </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={agregarIngrediente}
+          className="rounded-sm border border-vino/25 px-4 py-2.5 text-sm text-vino"
+        >
+          + Agregar ingrediente
+        </button>
+      </div>
+
       <button
         type="button"
         disabled={ocupado || !valido}
-        onClick={() => onCrear(nombre.trim(), categoriaId, Number(precio), Number(costo))}
+        onClick={enviar}
         className="rounded-sm bg-vino px-4 py-3 text-sm font-medium text-crema disabled:opacity-40"
       >
         {ocupado ? "Agregando..." : "Agregar al menú"}

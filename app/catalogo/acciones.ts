@@ -51,11 +51,16 @@ export async function crearSaborHelado(
   return null;
 }
 
+export type IngredienteReceta =
+  | { insumo_id: string; cantidad: number }
+  | { insumo_nombre: string; insumo_unidad: string; cantidad: number };
+
 export async function crearSimple(
   nombre: string,
   categoriaId: string,
   precio: number,
   costo: number,
+  ingredientes: IngredienteReceta[] = [],
 ): Promise<Falla> {
   const { sesion, falla } = await jefe();
   if (!sesion) return { error: falla! };
@@ -67,8 +72,10 @@ export async function crearSimple(
     p_categoria_id: categoriaId,
     p_precio: precio,
     p_costo: costo,
+    p_ingredientes: ingredientes,
   });
   if (error) return { error: error.message };
   revalidatePath("/catalogo");
+  revalidatePath("/inventario");
   return null;
 }

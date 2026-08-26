@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { leerSesion } from "@/lib/sesion";
-import { traerCategorias } from "@/lib/datos";
+import { traerCategorias, traerInsumos } from "@/lib/datos";
 import Nuevo from "./nuevo";
 
 export const metadata = { title: "Catálogo · Puerta 89" };
@@ -11,7 +11,7 @@ export default async function Pagina() {
   if (!sesion) redirect("/entrar");
   if (sesion.rol === "mesero") redirect("/barra");
 
-  const categorias = await traerCategorias();
+  const [categorias, insumos] = await Promise.all([traerCategorias(), traerInsumos()]);
 
   return (
     <main className="min-h-dvh bg-crema">
@@ -33,7 +33,7 @@ export default async function Pagina() {
         </div>
       </header>
       <div className="mx-auto max-w-lg px-4 py-5">
-        <Nuevo categorias={categorias} />
+        <Nuevo categorias={categorias} insumos={insumos} />
       </div>
     </main>
   );

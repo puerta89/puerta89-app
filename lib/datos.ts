@@ -412,6 +412,15 @@ export async function traerCategorias() {
   return (data ?? []) as Categoria[];
 }
 
+export type Insumo = { id: string; nombre: string; categoria: string; unidad_base: string };
+
+export async function traerInsumos() {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("insumos_de");
+  if (error) throw new Error(`No se pudieron leer los insumos: ${error.message}`);
+  return (data ?? []) as Insumo[];
+}
+
 /** Rango de fechas en México para los últimos N días. */
 export function rango(dias: number) {
   const hasta = hoyEnMexico();
