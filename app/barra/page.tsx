@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { leerSesion } from "@/lib/sesion";
-import { traerMapa } from "@/lib/datos";
+import { traerMapa, traerSucursalesDisponibles } from "@/lib/datos";
 import { salir } from "../entrar/acciones";
 import Mapa from "./mapa";
+import SelectorSucursal from "./selector-sucursal";
 
 export const metadata = { title: "Barra · Puerta 89" };
 
@@ -11,7 +12,12 @@ export default async function Barra() {
   const sesion = await leerSesion();
   if (!sesion) redirect("/entrar");
 
-  const zonas = await traerMapa(sesion.sucursalId);
+  const [zonas, sucursales] = await Promise.all([
+    traerMapa(sesion.sucursalId),
+    sesion.puedeCambiarSucursal
+      ? traerSucursalesDisponibles(sesion.empleadoId)
+      : Promise.resolve([]),
+  ]);
 
   return (
     <main className="min-h-dvh bg-crema">
@@ -20,12 +26,16 @@ export default async function Barra() {
         className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-crema"
         style={{ backgroundColor: sesion.sucursalColor }}
       >
-        <div>
-          <p className="text-[11px] tracking-widest uppercase opacity-75">
-            Sucursal
-          </p>
-          <p className="text-lg font-medium">{sesion.sucursalNombre}</p>
-        </div>
+        {sesion.puedeCambiarSucursal ? (
+          <SelectorSucursal sucursales={sucursales} actual={sesion.sucursalId} />
+        ) : (
+          <div>
+            <p className="text-[11px] tracking-widest uppercase opacity-75">
+              Sucursal
+            </p>
+            <p className="text-lg font-medium">{sesion.sucursalNombre}</p>
+          </div>
+        )}
         <div className="flex items-center gap-4">
           <div className="text-right">
             <p className="text-[11px] tracking-widest uppercase opacity-75">

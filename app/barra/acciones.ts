@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { supabaseServidor } from "@/lib/supabase/server";
-import { leerSesion } from "@/lib/sesion";
+import { leerSesion, abrirSesion } from "@/lib/sesion";
 
 export type ResultadoAbrir = { error: string } | { ticketId: string };
 
@@ -31,4 +32,37 @@ export async function abrirCuenta(
 
   revalidatePath("/barra");
   return { ticketId: data as string };
+}
+
+/** Solo para quien tiene puede_cambiar_sucursal (hoy nada más Iram):
+ * mueve la sesión completa a otra sucursal, sin tener que salir y
+ * volver a entrar con un código distinto. */
+export async function cambiarSucursal(sucursalId: string): Promise<{ error: string } | null> {
+  const sesion = await leerSesion();
+  if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
+  if (!sesion.puedeCambiarSucursal) {
+    return { error: "No puedes cambiar de sucursal." };
+  }
+
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("cambiar_sucursal", {
+    p_empleado: sesion.empleadoId,
+    p_sucursal: sucursalId,
+  });
+  if (error) return { error: error.message };
+
+  const nueva = data?.[0];
+  if (!nueva) return { error: "Esa sucursal no existe." };
+
+  await abrirSesion({
+    empleadoId: sesion.empleadoId,
+    nombre: sesion.nombre,
+    rol: sesion.rol,
+    sucursalId: nueva.sucursal_id,
+    sucursalNombre: nueva.sucursal_nombre,
+    sucursalColor: nueva.sucursal_color,
+    puedeCambiarSucursal: sesion.puedeCambiarSucursal,
+  });
+
+  redirect("/barra");
 }

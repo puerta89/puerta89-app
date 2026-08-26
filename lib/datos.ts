@@ -421,6 +421,15 @@ export async function traerInsumos() {
   return (data ?? []) as Insumo[];
 }
 
+export type SucursalDisponible = { id: string; nombre: string; color: string; activa: boolean };
+
+export async function traerSucursalesDisponibles(empleadoId: string) {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("sucursales_de", { p_empleado: empleadoId });
+  if (error) throw new Error(`No se pudieron leer las sucursales: ${error.message}`);
+  return (data ?? []) as SucursalDisponible[];
+}
+
 /** Rango de fechas en México para los últimos N días. */
 export function rango(dias: number) {
   const hasta = hoyEnMexico();
