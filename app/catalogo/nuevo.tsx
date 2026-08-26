@@ -7,7 +7,7 @@ import { crearVino, crearSaborHelado, crearSimple, type IngredienteReceta } from
 
 type Tipo = "vino" | "helado" | "simple";
 
-const UNIDADES = ["pieza", "kg", "gramo", "litro", "mililitro", "botella", "bolsa"];
+const UNIDADES = ["pieza", "rebanada", "kg", "gramo", "litro", "mililitro", "botella", "bolsa"];
 
 type FilaIngrediente = {
   clave: number;
@@ -17,6 +17,13 @@ type FilaIngrediente = {
   unidadNueva: string;
   cantidad: string;
   costoUnitario: string;
+  // Para un ingrediente nuevo que se compra en paquete (una bolsa que
+  // rinde varias rebanadas/piezas): en vez de dividir a mano, se captura
+  // el costo del paquete completo y cuánto rinde, y el costo por unidad
+  // se calcula solo.
+  modoCosto: "unitario" | "paquete";
+  costoPaquete: string;
+  rinde: string;
 };
 
 const PRECIOS_VINO: Record<string, { copa: number; botella: number }> = {
@@ -297,6 +304,9 @@ function FormSimple({
         unidadNueva: "pieza",
         cantidad: "",
         costoUnitario: primero ? String(primero.costo_promedio) : "",
+        modoCosto: "unitario",
+        costoPaquete: "",
+        rinde: "",
       },
     ]);
   }
@@ -307,7 +317,22 @@ function FormSimple({
 
   function cambiarIngrediente(clave: number, cambios: Partial<FilaIngrediente>) {
     setIngredientes((prev) =>
-      prev.map((f) => (f.clave === clave ? { ...f, ...cambios } : f)),
+      prev.map((f) => {
+        if (f.clave !== clave) return f;
+        const actualizada = { ...f, ...cambios };
+        // Si viene de paquete, el costo por unidad se recalcula solo
+        // cada vez que cambia el costo del paquete o cuánto rinde.
+        if (
+          actualizada.modoCosto === "paquete" &&
+          Number(actualizada.costoPaquete) > 0 &&
+          Number(actualizada.rinde) > 0
+        ) {
+          actualizada.costoUnitario = String(
+            Number(actualizada.costoPaquete) / Number(actualizada.rinde),
+          );
+        }
+        return actualizada;
+      }),
     );
   }
 
@@ -331,7 +356,11 @@ function FormSimple({
 
   const ingredientesValidos = ingredientes.every((f) => {
     if (!(Number(f.cantidad) > 0)) return false;
-    if (!(Number(f.costoUnitario) >= 0)) return false;
+    if (f.modo === "nuevo" && f.modoCosto === "paquete") {
+      if (!(Number(f.costoPaquete) > 0) || !(Number(f.rinde) > 0)) return false;
+    } else if (!(Number(f.costoUnitario) >= 0)) {
+      return false;
+    }
     return f.modo === "existente" ? !!f.insumoId : f.nombreNuevo.trim().length > 0;
   });
 
@@ -489,24 +518,50 @@ function FormSimple({
                 ))}
               </select>
             ) : (
-              <div className="flex gap-2">
-                <input
-                  value={f.nombreNuevo}
-                  onChange={(e) => cambiarIngrediente(f.clave, { nombreNuevo: e.target.value })}
-                  placeholder="ej. Arúgula"
-                  className="flex-1 rounded-sm border border-vino/25 px-3 py-2.5 text-sm outline-none focus:border-vino"
-                />
-                <select
-                  value={f.unidadNueva}
-                  onChange={(e) => cambiarIngrediente(f.clave, { unidadNueva: e.target.value })}
-                  className="rounded-sm border border-vino/25 px-2 py-2.5 text-sm outline-none focus:border-vino"
-                >
-                  {UNIDADES.map((u) => (
-                    <option key={u} value={u}>
-                      {u}
-                    </option>
-                  ))}
-                </select>
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <input
+                    value={f.nombreNuevo}
+                    onChange={(e) => cambiarIngrediente(f.clave, { nombreNuevo: e.target.value })}
+                    placeholder="ej. Lomo embuchado"
+                    className="flex-1 rounded-sm border border-vino/25 px-3 py-2.5 text-sm outline-none focus:border-vino"
+                  />
+                  <select
+                    value={f.unidadNueva}
+                    onChange={(e) => cambiarIngrediente(f.clave, { unidadNueva: e.target.value })}
+                    className="rounded-sm border border-vino/25 px-2 py-2.5 text-sm outline-none focus:border-vino"
+                  >
+                    {UNIDADES.map((u) => (
+                      <option key={u} value={u}>
+                        {u}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => cambiarIngrediente(f.clave, { modoCosto: "unitario" })}
+                    className={`rounded-full px-3 py-1.5 text-xs ${
+                      f.modoCosto === "unitario"
+                        ? "bg-vino text-crema"
+                        : "border border-vino/25 text-vino"
+                    }`}
+                  >
+                    Sé lo que cuesta cada {f.unidadNueva || "unidad"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => cambiarIngrediente(f.clave, { modoCosto: "paquete" })}
+                    className={`rounded-full px-3 py-1.5 text-xs ${
+                      f.modoCosto === "paquete"
+                        ? "bg-vino text-crema"
+                        : "border border-vino/25 text-vino"
+                    }`}
+                  >
+                    Viene en un paquete que rinde varias
+                  </button>
+                </div>
               </div>
             )}
 
@@ -517,21 +572,53 @@ function FormSimple({
                   inputMode="decimal"
                   value={f.cantidad}
                   onChange={(e) => cambiarIngrediente(f.clave, { cantidad: e.target.value })}
-                  placeholder="ej. 0.05"
+                  placeholder="ej. 3"
                   className="mt-1 w-full rounded-sm border border-vino/25 px-3 py-2.5 text-sm tabular-nums text-tinta outline-none focus:border-vino"
                 />
               </label>
-              <label className="w-40 text-xs text-tinta-2">
-                Costo de 1 {unidadDe(f) || "unidad"} completa
-                <input
-                  inputMode="decimal"
-                  value={f.costoUnitario}
-                  onChange={(e) => cambiarIngrediente(f.clave, { costoUnitario: e.target.value })}
-                  placeholder="ej. 140"
-                  className="mt-1 w-full rounded-sm border border-vino/25 px-3 py-2.5 text-sm tabular-nums text-tinta outline-none focus:border-vino"
-                />
-              </label>
+
+              {f.modo === "nuevo" && f.modoCosto === "paquete" ? (
+                <>
+                  <label className="w-36 text-xs text-tinta-2">
+                    ¿Cuánto cuesta el paquete?
+                    <input
+                      inputMode="decimal"
+                      value={f.costoPaquete}
+                      onChange={(e) => cambiarIngrediente(f.clave, { costoPaquete: e.target.value })}
+                      placeholder="ej. 125"
+                      className="mt-1 w-full rounded-sm border border-vino/25 px-3 py-2.5 text-sm tabular-nums text-tinta outline-none focus:border-vino"
+                    />
+                  </label>
+                  <label className="w-36 text-xs text-tinta-2">
+                    ¿De cuántas {unidadDe(f) || "unidades"} rinde el paquete?
+                    <input
+                      inputMode="decimal"
+                      value={f.rinde}
+                      onChange={(e) => cambiarIngrediente(f.clave, { rinde: e.target.value })}
+                      placeholder="ej. 30"
+                      className="mt-1 w-full rounded-sm border border-vino/25 px-3 py-2.5 text-sm tabular-nums text-tinta outline-none focus:border-vino"
+                    />
+                  </label>
+                </>
+              ) : (
+                <label className="w-40 text-xs text-tinta-2">
+                  Costo de 1 {unidadDe(f) || "unidad"} completa
+                  <input
+                    inputMode="decimal"
+                    value={f.costoUnitario}
+                    onChange={(e) => cambiarIngrediente(f.clave, { costoUnitario: e.target.value })}
+                    placeholder="ej. 140"
+                    className="mt-1 w-full rounded-sm border border-vino/25 px-3 py-2.5 text-sm tabular-nums text-tinta outline-none focus:border-vino"
+                  />
+                </label>
+              )}
             </div>
+
+            {f.modo === "nuevo" && f.modoCosto === "paquete" && Number(f.costoUnitario) > 0 && (
+              <p className="text-xs text-tinta-2">
+                Cada {unidadDe(f)} te sale en {pesos(Number(f.costoUnitario))}.
+              </p>
+            )}
             {Number(f.cantidad) > 0 && Number(f.costoUnitario) >= 0 && (
               <p className="text-xs text-tinta-2">
                 {Number(f.cantidad)} {unidadDe(f)} × {pesos(Number(f.costoUnitario))} ={" "}
