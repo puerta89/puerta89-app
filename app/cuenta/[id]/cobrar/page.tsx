@@ -33,13 +33,13 @@ export default async function Cobrar({
   return (
     <main className="min-h-dvh bg-crema">
       <header
-        className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-crema"
-        style={{ backgroundColor: sesion.sucursalColor }}
+        className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
+        style={{ backgroundColor: sesion.sucursalColor, color: sesion.sucursalColorTexto }}
       >
         <div className="flex items-center gap-4">
           <Link
             href={`/cuenta/${id}`}
-            className="rounded-sm border border-crema/40 px-3 py-2 text-sm"
+            className="rounded-sm border border-current/40 px-3 py-2 text-sm"
           >
             ← Cuenta
           </Link>

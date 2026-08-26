@@ -38,6 +38,7 @@ export async function entrarConCodigo(
     sucursalId: empleado.sucursal_id,
     sucursalNombre: empleado.sucursal_nombre,
     sucursalColor: empleado.sucursal_color,
+    sucursalColorTexto: empleado.sucursal_color_texto,
     puedeCambiarSucursal: empleado.puede_cambiar_sucursal,
   });
 

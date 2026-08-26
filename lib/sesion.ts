@@ -11,6 +11,7 @@ export type Sesion = {
   sucursalId: string;
   sucursalNombre: string;
   sucursalColor: string;
+  sucursalColorTexto: string;
   puedeCambiarSucursal: boolean;
   expira: number;
 };

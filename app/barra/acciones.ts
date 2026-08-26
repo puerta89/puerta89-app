@@ -61,6 +61,7 @@ export async function cambiarSucursal(sucursalId: string): Promise<{ error: stri
     sucursalId: nueva.sucursal_id,
     sucursalNombre: nueva.sucursal_nombre,
     sucursalColor: nueva.sucursal_color,
+    sucursalColorTexto: nueva.sucursal_color_texto,
     puedeCambiarSucursal: sesion.puedeCambiarSucursal,
   });
 

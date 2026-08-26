@@ -16,12 +16,12 @@ export default async function Conteo() {
   return (
     <main className="min-h-dvh bg-crema">
       <header
-        className="flex items-center gap-4 px-5 py-3 text-crema"
-        style={{ backgroundColor: sesion.sucursalColor }}
+        className="flex items-center gap-4 px-5 py-3"
+        style={{ backgroundColor: sesion.sucursalColor, color: sesion.sucursalColorTexto }}
       >
         <Link
           href="/inventario"
-          className="rounded-sm border border-crema/40 px-3 py-2 text-sm"
+          className="rounded-sm border border-current/40 px-3 py-2 text-sm"
         >
           ← Inventario
         </Link>

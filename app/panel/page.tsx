@@ -70,13 +70,13 @@ export default async function Panel({ searchParams }: PageProps<"/panel">) {
   return (
     <main className="min-h-dvh bg-crema">
       <header
-        className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-crema"
-        style={{ backgroundColor: sesion.sucursalColor }}
+        className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
+        style={{ backgroundColor: sesion.sucursalColor, color: sesion.sucursalColorTexto }}
       >
         <div className="flex items-center gap-4">
           <Link
             href="/barra"
-            className="rounded-sm border border-crema/40 px-3 py-2 text-sm"
+            className="rounded-sm border border-current/40 px-3 py-2 text-sm"
           >
             ← Mapa
           </Link>
@@ -92,13 +92,13 @@ export default async function Panel({ searchParams }: PageProps<"/panel">) {
         <div className="flex items-center gap-2">
           <a
             href={`/panel/exportar?desde=${desde}&hasta=${hasta}`}
-            className="rounded-sm border border-crema/40 px-4 py-2 text-sm"
+            className="rounded-sm border border-current/40 px-4 py-2 text-sm"
           >
             Descargar Excel
           </a>
           <Link
             href="/gastos"
-            className="rounded-sm border border-crema/40 px-4 py-2 text-sm"
+            className="rounded-sm border border-current/40 px-4 py-2 text-sm"
           >
             Gastos
           </Link>

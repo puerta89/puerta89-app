@@ -34,8 +34,8 @@ export default function SelectorSucursal({
             onClick={() => elegir(s.id)}
             className={`rounded-sm px-3 py-1.5 text-sm font-medium transition-opacity disabled:cursor-default ${
               s.id === actual
-                ? "bg-crema/25"
-                : "border border-crema/40 opacity-80 hover:opacity-100"
+                ? "bg-current/15"
+                : "border border-current/40 opacity-80 hover:opacity-100"
             }`}
           >
             {s.nombre}
@@ -43,7 +43,7 @@ export default function SelectorSucursal({
           </button>
         ))}
       </div>
-      {error && <p className="text-xs text-crema/90">{error}</p>}
+      {error && <p className="text-xs opacity-90">{error}</p>}
     </div>
   );
 }

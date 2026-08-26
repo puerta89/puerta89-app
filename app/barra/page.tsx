@@ -23,8 +23,8 @@ export default async function Barra() {
     <main className="min-h-dvh bg-crema">
       {/* La franja de arriba dice DÓNDE estás, con el color de la sucursal. */}
       <header
-        className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-crema"
-        style={{ backgroundColor: sesion.sucursalColor }}
+        className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
+        style={{ backgroundColor: sesion.sucursalColor, color: sesion.sucursalColorTexto }}
       >
         {sesion.puedeCambiarSucursal ? (
           <SelectorSucursal sucursales={sucursales} actual={sesion.sucursalId} />
@@ -46,7 +46,7 @@ export default async function Barra() {
           {sesion.rol !== "mesero" && (
             <Link
               href="/corte"
-              className="rounded-sm border border-crema/40 px-4 py-2 text-sm"
+              className="rounded-sm border border-current/40 px-4 py-2 text-sm"
             >
               Corte
             </Link>
@@ -54,7 +54,7 @@ export default async function Barra() {
           {sesion.rol !== "mesero" && (
             <Link
               href="/inventario"
-              className="rounded-sm border border-crema/40 px-4 py-2 text-sm"
+              className="rounded-sm border border-current/40 px-4 py-2 text-sm"
             >
               Inventario
             </Link>
@@ -62,7 +62,7 @@ export default async function Barra() {
           {sesion.rol !== "mesero" && (
             <Link
               href="/panel"
-              className="rounded-sm border border-crema/40 px-4 py-2 text-sm"
+              className="rounded-sm border border-current/40 px-4 py-2 text-sm"
             >
               Panel
             </Link>
@@ -70,7 +70,7 @@ export default async function Barra() {
           {sesion.rol !== "mesero" && (
             <Link
               href="/catalogo"
-              className="rounded-sm border border-crema/40 px-4 py-2 text-sm"
+              className="rounded-sm border border-current/40 px-4 py-2 text-sm"
             >
               Catálogo
             </Link>
@@ -78,7 +78,7 @@ export default async function Barra() {
           {sesion.rol === "dueno" && (
             <Link
               href="/equipo"
-              className="rounded-sm border border-crema/40 px-4 py-2 text-sm"
+              className="rounded-sm border border-current/40 px-4 py-2 text-sm"
             >
               Equipo
             </Link>
@@ -86,7 +86,7 @@ export default async function Barra() {
           <form action={salir}>
             <button
               type="submit"
-              className="rounded-sm border border-crema/40 px-4 py-2 text-sm"
+              className="rounded-sm border border-current/40 px-4 py-2 text-sm"
             >
               Salir
             </button>
