@@ -72,7 +72,7 @@ export default async function Barra() {
               href="/catalogo"
               className="rounded-sm border border-current/40 px-4 py-2 text-sm"
             >
-              Catálogo
+              Menú
             </Link>
           )}
           {sesion.rol === "dueno" && (

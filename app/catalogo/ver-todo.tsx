@@ -26,15 +26,18 @@ export default function VerTodo({ catalogo }: { catalogo: ItemCatalogoCompleto[]
     );
   }, [catalogo, busqueda]);
 
+  const activos = useMemo(() => filtrado.filter((i) => i.activo), [filtrado]);
+  const inactivos = useMemo(() => filtrado.filter((i) => !i.activo), [filtrado]);
+
   const porCategoria = useMemo(() => {
     const grupos = new Map<string, ItemCatalogoCompleto[]>();
-    for (const item of filtrado) {
+    for (const item of activos) {
       const lista = grupos.get(item.categoria) ?? [];
       lista.push(item);
       grupos.set(item.categoria, lista);
     }
     return [...grupos.entries()];
-  }, [filtrado]);
+  }, [activos]);
 
   function guardarPrecio(precio: number, costo: number) {
     if (!abierto) return;
@@ -58,7 +61,7 @@ export default function VerTodo({ catalogo }: { catalogo: ItemCatalogoCompleto[]
         className="rounded-sm border border-vino/25 px-3 py-2.5 text-sm outline-none focus:border-vino"
       />
 
-      {porCategoria.length === 0 ? (
+      {porCategoria.length === 0 && inactivos.length === 0 ? (
         <p className="rounded-sm border border-vino/15 bg-white px-5 py-10 text-center text-sm text-tinta-2">
           No hay nada que coincida con esa búsqueda.
         </p>
@@ -82,17 +85,11 @@ export default function VerTodo({ catalogo }: { catalogo: ItemCatalogoCompleto[]
                     <tr
                       key={i.presentacion_id}
                       onClick={() => setAbierto(i)}
-                      className={`cursor-pointer border-b border-vino/10 last:border-b-0 active:bg-rosa-claro/25 ${
-                        !i.activo ? "opacity-50" : ""
-                      }`}
+                      className="cursor-pointer border-b border-vino/10 last:border-b-0 active:bg-rosa-claro/25"
                     >
                       <td className="px-4 py-2.5">
                         {i.producto}
-                        <span className="text-tinta-2">
-                          {" "}
-                          · {i.presentacion}
-                          {!i.activo && " · inactivo"}
-                        </span>
+                        <span className="text-tinta-2"> · {i.presentacion}</span>
                       </td>
                       <td className="px-3 py-2.5 text-right tabular-nums">
                         {i.precio === null ? (
@@ -118,6 +115,45 @@ export default function VerTodo({ catalogo }: { catalogo: ItemCatalogoCompleto[]
         no se borra: queda guardado como historial, para que las ventas ya
         hechas conserven su precio real.
       </p>
+
+      {inactivos.length > 0 && (
+        <details className="rounded-sm border border-vino/15 bg-white">
+          <summary className="cursor-pointer px-4 py-2.5 text-sm text-tinta-2">
+            Inactivos / de temporada ({inactivos.length})
+          </summary>
+          <div className="overflow-x-auto border-t border-vino/15">
+            <table className="w-full min-w-[480px] text-sm">
+              <tbody>
+                {inactivos.map((i) => (
+                  <tr
+                    key={i.presentacion_id}
+                    onClick={() => setAbierto(i)}
+                    className="cursor-pointer border-b border-vino/10 opacity-60 last:border-b-0 active:bg-rosa-claro/25"
+                  >
+                    <td className="px-4 py-2.5">
+                      {i.producto}
+                      <span className="text-tinta-2">
+                        {" "}
+                        · {i.presentacion} · {i.categoria}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">
+                      {i.precio === null ? (
+                        <span className="text-[#9C6A1E]">sin precio aquí</span>
+                      ) : (
+                        pesos(i.precio)
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-tinta-2">
+                      {i.costo === null ? "—" : pesos(i.costo)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )}
 
       {abierto && (
         <PanelPrecio

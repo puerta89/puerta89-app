@@ -4,7 +4,7 @@ import { leerSesion } from "@/lib/sesion";
 import { traerCategorias, traerInsumos, traerCatalogoCompleto } from "@/lib/datos";
 import Nuevo from "./nuevo";
 
-export const metadata = { title: "Catálogo · Puerta 89" };
+export const metadata = { title: "Menú · Puerta 89" };
 
 export default async function Pagina() {
   const sesion = await leerSesion();
@@ -33,7 +33,7 @@ export default async function Pagina() {
           <p className="text-[11px] tracking-widest uppercase opacity-75">
             {sesion.sucursalNombre}
           </p>
-          <p className="text-lg font-medium">Catálogo</p>
+          <p className="text-lg font-medium">Menú</p>
         </div>
       </header>
       <div className="mx-auto max-w-4xl px-4 py-5">
