@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { leerSesion } from "@/lib/sesion";
-import { traerCategorias, traerInsumos } from "@/lib/datos";
+import { traerCategorias, traerInsumos, traerCatalogoCompleto } from "@/lib/datos";
 import Nuevo from "./nuevo";
 
 export const metadata = { title: "Catálogo · Puerta 89" };
@@ -11,9 +11,10 @@ export default async function Pagina() {
   if (!sesion) redirect("/entrar");
   if (sesion.rol === "mesero") redirect("/barra");
 
-  const [categorias, insumos] = await Promise.all([
+  const [categorias, insumos, catalogo] = await Promise.all([
     traerCategorias(),
     traerInsumos(sesion.sucursalId),
+    traerCatalogoCompleto(sesion.sucursalId),
   ]);
 
   return (
@@ -32,11 +33,11 @@ export default async function Pagina() {
           <p className="text-[11px] tracking-widest uppercase opacity-75">
             {sesion.sucursalNombre}
           </p>
-          <p className="text-lg font-medium">Agregar al menú</p>
+          <p className="text-lg font-medium">Catálogo</p>
         </div>
       </header>
-      <div className="mx-auto max-w-lg px-4 py-5">
-        <Nuevo categorias={categorias} insumos={insumos} />
+      <div className="mx-auto max-w-4xl px-4 py-5">
+        <Nuevo categorias={categorias} insumos={insumos} catalogo={catalogo} />
       </div>
     </main>
   );

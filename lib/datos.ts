@@ -439,6 +439,29 @@ export async function traerSucursalesDisponibles(empleadoId: string) {
   return (data ?? []) as SucursalDisponible[];
 }
 
+export type ItemCatalogoCompleto = {
+  categoria: string;
+  producto_id: string;
+  producto: string;
+  tipo_vino: string | null;
+  activo: boolean;
+  presentacion_id: string;
+  presentacion: string;
+  precio: number | null;
+  costo: number | null;
+};
+
+export async function traerCatalogoCompleto(sucursalId: string) {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("catalogo_completo", { p_sucursal: sucursalId });
+  if (error) throw new Error(`No se pudo leer el catálogo: ${error.message}`);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    ...r,
+    precio: r.precio === null ? null : Number(r.precio),
+    costo: r.costo === null ? null : Number(r.costo),
+  })) as ItemCatalogoCompleto[];
+}
+
 /** Rango de fechas en México para los últimos N días. */
 export function rango(dias: number) {
   const hasta = hoyEnMexico();

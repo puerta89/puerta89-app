@@ -79,3 +79,24 @@ export async function crearSimple(
   revalidatePath("/inventario");
   return null;
 }
+
+export async function cambiarPrecio(
+  presentacionId: string,
+  precio: number,
+  costo: number,
+): Promise<Falla> {
+  const { sesion, falla } = await jefe();
+  if (!sesion) return { error: falla! };
+
+  const supabase = supabaseServidor();
+  const { error } = await supabase.rpc("catalogo_cambiar_precio", {
+    p_empleado: sesion.empleadoId,
+    p_presentacion: presentacionId,
+    p_precio: precio,
+    p_costo: costo,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/catalogo");
+  revalidatePath("/inventario");
+  return null;
+}

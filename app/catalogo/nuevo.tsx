@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { Categoria, Insumo } from "@/lib/datos";
+import type { Categoria, Insumo, ItemCatalogoCompleto } from "@/lib/datos";
 import { crearVino, crearSaborHelado, crearSimple, type IngredienteReceta } from "./acciones";
+import VerTodo from "./ver-todo";
 
 type Tipo = "vino" | "helado" | "simple";
 
@@ -39,11 +40,14 @@ const pesos = (n: number) =>
 export default function Nuevo({
   categorias,
   insumos,
+  catalogo,
 }: {
   categorias: Categoria[];
   insumos: Insumo[];
+  catalogo: ItemCatalogoCompleto[];
 }) {
   const router = useRouter();
+  const [vista, setVista] = useState<"agregar" | "ver">("ver");
   const [tipo, setTipo] = useState<Tipo>("vino");
   const [error, setError] = useState<string | null>(null);
   const [hecho, setHecho] = useState<string | null>(null);
@@ -64,6 +68,25 @@ export default function Nuevo({
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex gap-2">
+        {(["ver", "agregar"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setVista(v)}
+            className={`rounded-full px-4 py-2 text-sm transition-colors ${
+              v === vista ? "bg-vino text-crema" : "border border-vino/25 text-vino"
+            }`}
+          >
+            {v === "ver" ? "Ver todo el menú" : "Agregar algo nuevo"}
+          </button>
+        ))}
+      </div>
+
+      {vista === "ver" && <VerTodo catalogo={catalogo} />}
+
+      {vista === "agregar" && (
+        <>
       <p className="text-sm text-tinta-2">
         Elige qué tipo de cosa es. El sistema ya sabe cómo se vende y le pone
         los precios de catálogo — tú solo dices el nombre y el costo.
@@ -139,6 +162,8 @@ export default function Nuevo({
         <p className="rounded-sm bg-[#556B4A]/10 px-4 py-3 text-sm text-[#556B4A]">
           {hecho}
         </p>
+      )}
+        </>
       )}
     </div>
   );
