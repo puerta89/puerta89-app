@@ -27,6 +27,7 @@ export async function altaEmpleado(
   const supabase = supabaseServidor();
   const { error } = await supabase.rpc("alta_empleado", {
     p_empleado: sesion.empleadoId,
+    p_sucursal: sesion.sucursalId,
     p_codigo_jefe: codigoJefe,
     p_nombre: nombre,
     p_rol: rol,
@@ -49,6 +50,7 @@ export async function cambiarCodigo(
   const supabase = supabaseServidor();
   const { error } = await supabase.rpc("cambiar_codigo", {
     p_empleado: sesion.empleadoId,
+    p_sucursal: sesion.sucursalId,
     p_codigo_jefe: codigoJefe,
     p_objetivo: objetivo,
     p_nuevo: nuevo,
@@ -69,6 +71,7 @@ export async function cambiarAlta(
   const supabase = supabaseServidor();
   const { error } = await supabase.rpc("baja_empleado", {
     p_empleado: sesion.empleadoId,
+    p_sucursal: sesion.sucursalId,
     p_codigo_jefe: codigoJefe,
     p_objetivo: objetivo,
     p_activo: activo,

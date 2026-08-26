@@ -16,6 +16,7 @@ type FilaIngrediente = {
   nombreNuevo: string;
   unidadNueva: string;
   cantidad: string;
+  costoUnitario: string;
 };
 
 const PRECIOS_VINO: Record<string, { copa: number; botella: number }> = {
@@ -285,15 +286,17 @@ function FormSimple({
   const [ingredientes, setIngredientes] = useState<FilaIngrediente[]>([]);
 
   function agregarIngrediente() {
+    const primero = insumos[0];
     setIngredientes((prev) => [
       ...prev,
       {
         clave: siguienteClave++,
         modo: insumos.length > 0 ? "existente" : "nuevo",
-        insumoId: insumos[0]?.id ?? "",
+        insumoId: primero?.id ?? "",
         nombreNuevo: "",
         unidadNueva: "pieza",
         cantidad: "",
+        costoUnitario: primero ? String(primero.costo_promedio) : "",
       },
     ]);
   }
@@ -308,17 +311,35 @@ function FormSimple({
     );
   }
 
+  // Al elegir un insumo que ya existe, se toma su costo promedio actual
+  // como punto de partida (se puede corregir a mano si no aplica).
+  function elegirInsumoExistente(clave: number, insumoId: string) {
+    const insumo = insumos.find((i) => i.id === insumoId);
+    cambiarIngrediente(clave, {
+      insumoId,
+      costoUnitario: insumo ? String(insumo.costo_promedio) : "",
+    });
+  }
+
   const ingredientesValidos = ingredientes.every((f) => {
     if (!(Number(f.cantidad) > 0)) return false;
+    if (!(Number(f.costoUnitario) >= 0)) return false;
     return f.modo === "existente" ? !!f.insumoId : f.nombreNuevo.trim().length > 0;
   });
+
+  // Con ingredientes, el costo se calcula solo (cantidad x costo de cada
+  // uno) — así no hay que hacer la cuenta a mano.
+  const hayIngredientes = ingredientes.length > 0;
+  const costoCalculado = ingredientes.reduce(
+    (suma, f) => suma + Number(f.cantidad || 0) * Number(f.costoUnitario || 0),
+    0,
+  );
 
   const valido =
     nombre.trim().length > 0 &&
     categoriaId &&
     Number(precio) > 0 &&
-    Number(costo) >= 0 &&
-    ingredientesValidos;
+    (hayIngredientes ? ingredientesValidos : Number(costo) >= 0);
 
   function enviar() {
     const lista: IngredienteReceta[] = ingredientes.map((f) =>
@@ -330,7 +351,8 @@ function FormSimple({
             cantidad: Number(f.cantidad),
           },
     );
-    onCrear(nombre.trim(), categoriaId, Number(precio), Number(costo), lista);
+    const costoFinal = hayIngredientes ? costoCalculado : Number(costo);
+    onCrear(nombre.trim(), categoriaId, Number(precio), costoFinal, lista);
     setIngredientes([]);
   }
 
@@ -378,25 +400,38 @@ function FormSimple({
         />
       </label>
 
-      <label className="flex flex-col gap-1.5 text-sm">
-        Lo que te cuesta
-        <input
-          inputMode="decimal"
-          value={costo}
-          onChange={(e) => setCosto(e.target.value)}
-          placeholder="ej. 20"
-          className="rounded-sm border border-vino/25 px-3 py-3 tabular-nums outline-none focus:border-vino"
-        />
-      </label>
+      {hayIngredientes ? (
+        <div className="flex flex-col gap-1.5 text-sm">
+          <span>Lo que te cuesta</span>
+          <p className="rounded-sm border border-vino/15 bg-rosa-claro/15 px-3 py-3 tabular-nums">
+            {pesos(costoCalculado)}
+            <span className="ml-2 text-xs font-normal text-tinta-2">
+              calculado solo, según los ingredientes de abajo
+            </span>
+          </p>
+        </div>
+      ) : (
+        <label className="flex flex-col gap-1.5 text-sm">
+          Lo que te cuesta
+          <input
+            inputMode="decimal"
+            value={costo}
+            onChange={(e) => setCosto(e.target.value)}
+            placeholder="ej. 20"
+            className="rounded-sm border border-vino/25 px-3 py-3 tabular-nums outline-none focus:border-vino"
+          />
+        </label>
+      )}
 
       <div className="flex flex-col gap-2 border-t border-vino/15 pt-3">
         <p className="text-sm font-medium">
           Ingredientes de inventario (opcional)
         </p>
         <p className="text-xs text-tinta-2">
-          Agrega los que quieras — cada uno se resta solo cuando se venda esto.
-          Si un ingrediente todavía no existe, escribe su nombre y elige en qué
-          se mide; se crea al guardar.
+          Agrega los que quieras — cada uno se resta solo cuando se venda esto,
+          y en cuanto agregas uno el costo de arriba se calcula solo. Si un
+          ingrediente todavía no existe, escribe su nombre, elige en qué se
+          mide y cuánto cuesta esa unidad; se crea al guardar.
         </p>
 
         {ingredientes.map((f) => (
@@ -436,7 +471,7 @@ function FormSimple({
             {f.modo === "existente" ? (
               <select
                 value={f.insumoId}
-                onChange={(e) => cambiarIngrediente(f.clave, { insumoId: e.target.value })}
+                onChange={(e) => elegirInsumoExistente(f.clave, e.target.value)}
                 className="rounded-sm border border-vino/25 px-3 py-2.5 text-sm outline-none focus:border-vino"
               >
                 {insumos.map((i) => (
@@ -467,13 +502,30 @@ function FormSimple({
               </div>
             )}
 
-            <input
-              inputMode="decimal"
-              value={f.cantidad}
-              onChange={(e) => cambiarIngrediente(f.clave, { cantidad: e.target.value })}
-              placeholder="Cuánto se usa por venta, ej. 0.05"
-              className="rounded-sm border border-vino/25 px-3 py-2.5 text-sm tabular-nums outline-none focus:border-vino"
-            />
+            <div className="flex gap-2">
+              <input
+                inputMode="decimal"
+                value={f.cantidad}
+                onChange={(e) => cambiarIngrediente(f.clave, { cantidad: e.target.value })}
+                placeholder="Cuánto se usa por venta, ej. 0.05"
+                className="flex-1 rounded-sm border border-vino/25 px-3 py-2.5 text-sm tabular-nums outline-none focus:border-vino"
+              />
+              <input
+                inputMode="decimal"
+                value={f.costoUnitario}
+                onChange={(e) => cambiarIngrediente(f.clave, { costoUnitario: e.target.value })}
+                placeholder={
+                  f.modo === "existente" ? "Costo por unidad" : "Costo por unidad (nuevo)"
+                }
+                className="w-40 rounded-sm border border-vino/25 px-3 py-2.5 text-sm tabular-nums outline-none focus:border-vino"
+              />
+            </div>
+            {Number(f.cantidad) > 0 && Number(f.costoUnitario) >= 0 && (
+              <p className="text-xs text-tinta-2">
+                {Number(f.cantidad)} × {pesos(Number(f.costoUnitario))} ={" "}
+                {pesos(Number(f.cantidad) * Number(f.costoUnitario))}
+              </p>
+            )}
           </div>
         ))}
 

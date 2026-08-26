@@ -11,7 +11,10 @@ export default async function Pagina() {
   if (!sesion) redirect("/entrar");
   if (sesion.rol === "mesero") redirect("/barra");
 
-  const [categorias, insumos] = await Promise.all([traerCategorias(), traerInsumos()]);
+  const [categorias, insumos] = await Promise.all([
+    traerCategorias(),
+    traerInsumos(sesion.sucursalId),
+  ]);
 
   return (
     <main className="min-h-dvh bg-crema">

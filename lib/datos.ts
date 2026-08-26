@@ -412,13 +412,22 @@ export async function traerCategorias() {
   return (data ?? []) as Categoria[];
 }
 
-export type Insumo = { id: string; nombre: string; categoria: string; unidad_base: string };
+export type Insumo = {
+  id: string;
+  nombre: string;
+  categoria: string;
+  unidad_base: string;
+  costo_promedio: number;
+};
 
-export async function traerInsumos() {
+export async function traerInsumos(sucursalId: string) {
   const supabase = supabaseServidor();
-  const { data, error } = await supabase.rpc("insumos_de");
+  const { data, error } = await supabase.rpc("insumos_de", { p_sucursal: sucursalId });
   if (error) throw new Error(`No se pudieron leer los insumos: ${error.message}`);
-  return (data ?? []) as Insumo[];
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    ...r,
+    costo_promedio: Number(r.costo_promedio),
+  })) as Insumo[];
 }
 
 export type SucursalDisponible = { id: string; nombre: string; color: string; activa: boolean };
