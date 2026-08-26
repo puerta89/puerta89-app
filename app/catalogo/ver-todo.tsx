@@ -1,19 +1,23 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import type { ItemCatalogoCompleto } from "@/lib/datos";
-import { cambiarPrecio } from "./acciones";
+import { useMemo, useState } from "react";
+import type { Categoria, Insumo, ItemCatalogoCompleto } from "@/lib/datos";
+import EditarProducto from "./editar-producto";
 
 const pesos = (n: number) =>
   n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 
-export default function VerTodo({ catalogo }: { catalogo: ItemCatalogoCompleto[] }) {
-  const router = useRouter();
+export default function VerTodo({
+  catalogo,
+  categorias,
+  insumos,
+}: {
+  catalogo: ItemCatalogoCompleto[];
+  categorias: Categoria[];
+  insumos: Insumo[];
+}) {
   const [busqueda, setBusqueda] = useState("");
   const [abierto, setAbierto] = useState<ItemCatalogoCompleto | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [ocupado, empezar] = useTransition();
 
   const filtrado = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
@@ -38,19 +42,6 @@ export default function VerTodo({ catalogo }: { catalogo: ItemCatalogoCompleto[]
     }
     return [...grupos.entries()];
   }, [activos]);
-
-  function guardarPrecio(precio: number, costo: number) {
-    if (!abierto) return;
-    setError(null);
-    empezar(async () => {
-      const r = await cambiarPrecio(abierto.presentacion_id, precio, costo);
-      if (r?.error) setError(r.error);
-      else {
-        setAbierto(null);
-        router.refresh();
-      }
-    });
-  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -111,9 +102,10 @@ export default function VerTodo({ catalogo }: { catalogo: ItemCatalogoCompleto[]
       )}
 
       <p className="text-xs text-tinta-2">
-        Pica cualquier renglón para cambiarle el precio o el costo. Lo anterior
-        no se borra: queda guardado como historial, para que las ventas ya
-        hechas conserven su precio real.
+        Pica cualquier renglón para abrir el desglose completo — nombre,
+        categoría, precio, costo e ingredientes — y cambiar lo que haga
+        falta. Los precios no se borran: quedan de historial, para que las
+        ventas ya hechas conserven su precio real.
       </p>
 
       {inactivos.length > 0 && (
@@ -156,86 +148,13 @@ export default function VerTodo({ catalogo }: { catalogo: ItemCatalogoCompleto[]
       )}
 
       {abierto && (
-        <PanelPrecio
+        <EditarProducto
           item={abierto}
+          categorias={categorias}
+          insumos={insumos}
           cerrar={() => setAbierto(null)}
-          guardar={guardarPrecio}
-          ocupado={ocupado}
-          error={error}
         />
       )}
-    </div>
-  );
-}
-
-function PanelPrecio({
-  item,
-  cerrar,
-  guardar,
-  ocupado,
-  error,
-}: {
-  item: ItemCatalogoCompleto;
-  cerrar: () => void;
-  guardar: (precio: number, costo: number) => void;
-  ocupado: boolean;
-  error: string | null;
-}) {
-  const [precio, setPrecio] = useState(item.precio === null ? "" : String(item.precio));
-  const [costo, setCosto] = useState(item.costo === null ? "" : String(item.costo));
-  const valido = Number(precio) > 0 && Number(costo) >= 0;
-
-  return (
-    <div className="fixed inset-0 z-20 flex items-end justify-center bg-tinta/50 sm:items-center sm:p-6">
-      <div className="max-h-[88dvh] w-full max-w-md overflow-y-auto rounded-t-lg bg-crema sm:rounded-lg">
-        <div className="sticky top-0 flex items-start justify-between gap-3 border-b border-vino/15 bg-crema px-4 py-3">
-          <div>
-            <p className="font-medium">{item.producto}</p>
-            <p className="text-xs text-tinta-2">{item.presentacion}</p>
-          </div>
-          <button
-            type="button"
-            onClick={cerrar}
-            className="rounded-sm border border-vino/25 px-3 py-1.5 text-sm text-vino"
-          >
-            Cerrar
-          </button>
-        </div>
-
-        <div className="flex flex-col gap-3 p-4">
-          <label className="flex flex-col gap-1.5 text-sm">
-            Precio de venta
-            <input
-              inputMode="decimal"
-              value={precio}
-              onChange={(e) => setPrecio(e.target.value)}
-              className="rounded-sm border border-vino/25 px-3 py-3 tabular-nums outline-none focus:border-vino"
-            />
-          </label>
-          <label className="flex flex-col gap-1.5 text-sm">
-            Lo que cuesta
-            <input
-              inputMode="decimal"
-              value={costo}
-              onChange={(e) => setCosto(e.target.value)}
-              className="rounded-sm border border-vino/25 px-3 py-3 tabular-nums outline-none focus:border-vino"
-            />
-          </label>
-
-          {error && (
-            <p className="rounded-sm bg-vino/10 px-4 py-3 text-sm text-vino">{error}</p>
-          )}
-
-          <button
-            type="button"
-            disabled={ocupado || !valido}
-            onClick={() => guardar(Number(precio), Number(costo))}
-            className="rounded-sm bg-vino px-4 py-3 text-sm font-medium text-crema disabled:opacity-40"
-          >
-            {ocupado ? "Guardando..." : "Guardar"}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

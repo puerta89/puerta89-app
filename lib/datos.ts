@@ -462,6 +462,48 @@ export async function traerCatalogoCompleto(sucursalId: string) {
   })) as ItemCatalogoCompleto[];
 }
 
+/** El desglose completo de un producto: para abrir el mismo formulario
+ * con el que se agrega uno nuevo, pero prellenado y con todo editable —
+ * nombre, categoría, tipo de vino, cada presentación con su precio/costo
+ * vigente, y su receta de ingredientes. */
+export type DetallePresentacion = {
+  presentacion_id: string;
+  nombre: string;
+  orden: number;
+  precio: number | null;
+  costo: number | null;
+};
+
+export type DetalleIngrediente = {
+  id: string;
+  insumo_id: string;
+  insumo_nombre: string;
+  unidad: string;
+  cantidad: number;
+  costo_promedio: number;
+};
+
+export type DetalleProducto = {
+  producto_id: string;
+  nombre: string;
+  categoria_id: string;
+  tipo_vino: string | null;
+  activo: boolean;
+  presentaciones: DetallePresentacion[];
+  ingredientes: DetalleIngrediente[];
+  puede_eliminar: boolean;
+};
+
+export async function traerProductoDetalle(sucursalId: string, productoId: string) {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("catalogo_producto_detalle", {
+    p_sucursal: sucursalId,
+    p_producto: productoId,
+  });
+  if (error) throw new Error(`No se pudo leer el producto: ${error.message}`);
+  return data as DetalleProducto;
+}
+
 /** Rango de fechas en México para los últimos N días. */
 export function rango(dias: number) {
   const hasta = hoyEnMexico();

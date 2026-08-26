@@ -83,7 +83,9 @@ export default function Nuevo({
         ))}
       </div>
 
-      {vista === "ver" && <VerTodo catalogo={catalogo} />}
+      {vista === "ver" && (
+        <VerTodo catalogo={catalogo} categorias={categorias} insumos={insumos} />
+      )}
 
       {vista === "agregar" && (
         <>
