@@ -10,6 +10,7 @@ import {
   traerMesesGrupo,
   traerGastos,
   traerVentasLineas,
+  traerTicketsPeriodo,
   hoyEnMexico,
   type Desglose,
 } from "@/lib/datos";
@@ -50,13 +51,14 @@ export async function GET(request: NextRequest) {
   const hasta = searchParams.get("hasta") || hoy;
   const esTodo = desde === SIN_PISO;
 
-  const [resumen, ventasLineas, categorias, productos, meseros, horas, bancos, sucursales, meses, mesesGrupo, gastos] =
+  const [resumen, ventasLineas, tickets, categorias, productos, meseros, horas, bancos, sucursales, meses, mesesGrupo, gastos] =
     await Promise.all([
       traerPanel(sesion.sucursalId, desde, hasta),
       // Solo tiene sentido con un piso de fecha real: "todo el histórico"
       // (desde 2000) generaría una fila por día-artículo de 1550+ tickets,
       // demasiado pesado y poco útil para pegar en un Excel.
       esTodo ? Promise.resolve([]) : traerVentasLineas(sesion.sucursalId, desde, hasta),
+      esTodo ? Promise.resolve([]) : traerTicketsPeriodo(sesion.sucursalId, desde, hasta),
       traerDesglose(sesion.sucursalId, desde, hasta, "categoria"),
       traerDesglose(sesion.sucursalId, desde, hasta, "producto"),
       traerDesglose(sesion.sucursalId, desde, hasta, "mesero"),
@@ -126,6 +128,33 @@ export async function GET(request: NextRequest) {
     h.getColumn("costo").numFmt = PESOS;
     h.getColumn("beneficio_bruto").numFmt = PESOS;
     h.getColumn("margen").numFmt = "0.0%";
+    h.getRow(1).font = { bold: true };
+  }
+
+  // ── Tickets: una fila por cada cuenta cerrada (el recibo completo,
+  //    no solo el resumen por artículo) — como el reporte de tickets
+  //    individuales que antes se sacaba de Loyverse. ──────────────────
+  if (tickets.length > 0) {
+    const h = wb.addWorksheet("Tickets");
+    h.columns = [
+      { header: "Folio", key: "folio", width: 10 },
+      { header: "Fecha", key: "fecha", width: 12 },
+      { header: "Hora", key: "hora", width: 8 },
+      { header: "Mesero", key: "mesero", width: 16 },
+      { header: "Banco(s)", key: "bancos", width: 12 },
+      { header: "Personas", key: "personas", width: 10 },
+      { header: "Subtotal", key: "subtotal", width: 14 },
+      { header: "Descuento", key: "descuento", width: 12 },
+      { header: "Propina", key: "propina", width: 12 },
+      { header: "Total", key: "total", width: 14 },
+      { header: "Efectivo", key: "efectivo", width: 14 },
+      { header: "Tarjeta", key: "tarjeta", width: 14 },
+      { header: "Permanencia (min)", key: "permanencia_min", width: 16 },
+    ];
+    h.addRows(tickets);
+    ["subtotal", "descuento", "propina", "total", "efectivo", "tarjeta"].forEach((col) => {
+      h.getColumn(col).numFmt = PESOS;
+    });
     h.getRow(1).font = { bold: true };
   }
 

@@ -403,6 +403,34 @@ export async function traerVentasLineas(sucursalId: string, desde: string, hasta
   return (data ?? []).map((r: Record<string, unknown>) => num(r)) as unknown as VentaLinea[];
 }
 
+export type TicketPeriodo = {
+  folio: number;
+  fecha: string;
+  hora: string;
+  mesero: string | null;
+  bancos: string | null;
+  personas: number;
+  subtotal: number;
+  descuento: number;
+  propina: number;
+  total: number;
+  efectivo: number;
+  tarjeta: number;
+  permanencia_min: number;
+};
+
+/** Una fila por cada cuenta cerrada — para que el Excel traiga todos los
+ * tickets/recibos individuales, como el reporte que antes se sacaba de
+ * Loyverse (la hoja "Ventas" solo trae el resumen por día+artículo). */
+export async function traerTicketsPeriodo(sucursalId: string, desde: string, hasta: string) {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("tickets_del_periodo", {
+    p_sucursal: sucursalId, p_desde: desde, p_hasta: hasta,
+  });
+  if (error) throw new Error(`No se pudieron leer los tickets: ${error.message}`);
+  return (data ?? []).map((r: Record<string, unknown>) => num(r)) as unknown as TicketPeriodo[];
+}
+
 export type Categoria = { id: string; nombre: string };
 
 export async function traerCategorias() {
