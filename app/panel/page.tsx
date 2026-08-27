@@ -192,7 +192,7 @@ export default async function Panel({ searchParams }: PageProps<"/panel">) {
                 <Renglon texto="Lo que costó el producto" monto={-resumen.costo} />
                 <Renglon texto="Utilidad bruta" monto={resumen.utilidad_bruta} fuerte />
                 <Renglon texto="Mermas" monto={-resumen.mermas} />
-                <Renglon texto="Gastos" monto={-resumen.gastos} />
+                <Renglon texto="Gastos" monto={-resumen.gastos} href="/gastos" />
                 <div
                   className={`mt-2 flex items-center justify-between border-t-2 pt-3 text-lg font-medium ${
                     resumen.utilidad_real < 0
@@ -349,21 +349,33 @@ function Renglon({
   texto,
   monto,
   fuerte,
+  href,
 }: {
   texto: string;
   monto: number;
   fuerte?: boolean;
+  href?: string;
 }) {
-  return (
-    <div
-      className={`flex justify-between border-b border-vino/10 py-2 text-sm ${
-        fuerte ? "font-medium" : ""
-      }`}
-    >
-      <span className={fuerte ? "" : "text-tinta-2"}>{texto}</span>
+  const clases = `flex justify-between border-b border-vino/10 py-2 text-sm ${
+    fuerte ? "font-medium" : ""
+  }`;
+  const contenido = (
+    <>
+      <span className={fuerte ? "" : "text-tinta-2"}>
+        {texto}
+        {href && " →"}
+      </span>
       <span className="tabular-nums">{exacto(monto)}</span>
-    </div>
+    </>
   );
+  if (href) {
+    return (
+      <Link href={href} className={`${clases} hover:bg-rosa-claro/15`}>
+        {contenido}
+      </Link>
+    );
+  }
+  return <div className={clases}>{contenido}</div>;
 }
 
 function Barras({
