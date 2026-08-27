@@ -143,6 +143,7 @@ export async function GET(request: NextRequest) {
       { header: "Mesero", key: "mesero", width: 16 },
       { header: "Banco(s)", key: "bancos", width: 12 },
       { header: "Personas", key: "personas", width: 10 },
+      { header: "Artículos", key: "articulos", width: 50 },
       { header: "Subtotal", key: "subtotal", width: 14 },
       { header: "Descuento", key: "descuento", width: 12 },
       { header: "Propina", key: "propina", width: 12 },
@@ -155,6 +156,7 @@ export async function GET(request: NextRequest) {
     ["subtotal", "descuento", "propina", "total", "efectivo", "tarjeta"].forEach((col) => {
       h.getColumn(col).numFmt = PESOS;
     });
+    h.getColumn("articulos").alignment = { wrapText: true, vertical: "top" };
     h.getRow(1).font = { bold: true };
   }
 

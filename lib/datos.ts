@@ -410,6 +410,7 @@ export type TicketPeriodo = {
   mesero: string | null;
   bancos: string | null;
   personas: number;
+  articulos: string | null;
   subtotal: number;
   descuento: number;
   propina: number;
