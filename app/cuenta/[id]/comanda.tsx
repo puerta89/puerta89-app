@@ -370,7 +370,7 @@ export default function Comanda({
           )}
         </div>
 
-        {lineas.length > 0 ? (
+        {lineas.length > 0 && (
           <div className="flex gap-2 px-4 pb-4">
             {estado === "abierto" && (
               <button
@@ -390,19 +390,18 @@ export default function Comanda({
               Cobrar
             </button>
           </div>
-        ) : (
-          rol !== "mesero" &&
-          estado === "abierto" && (
-            <div className="px-4 pb-4">
-              <button
-                type="button"
-                onClick={() => setCancelandoMesa(true)}
-                className="w-full rounded-sm border border-vino/30 px-4 py-3 text-sm text-vino"
-              >
-                Cancelar esta mesa (se abrió por error)
-              </button>
-            </div>
-          )
+        )}
+
+        {rol !== "mesero" && (
+          <div className="px-4 pb-4">
+            <button
+              type="button"
+              onClick={() => setCancelandoMesa(true)}
+              className="w-full rounded-sm border border-vino/30 px-4 py-3 text-sm text-vino"
+            >
+              {lineas.length === 0 ? "Cancelar esta mesa (se abrió por error)" : "Cancelar toda la cuenta"}
+            </button>
+          </div>
         )}
       </section>
 
@@ -665,12 +664,16 @@ export default function Comanda({
       {/* ─────────── CANCELAR LA MESA (se abrió por error) ─────────── */}
       {cancelandoMesa && (
         <Hoja
-          titulo="Cancelar esta mesa"
-          sub="No se cobró nada — el banco queda libre"
+          titulo={lineas.length === 0 ? "Cancelar esta mesa" : "Cancelar toda la cuenta"}
+          sub="El banco queda libre"
           cerrar={() => setCancelandoMesa(false)}
         >
           <div className="flex flex-col gap-4 p-4">
-            <p className="text-sm text-tinta-2">¿Estás seguro? No cuenta como venta.</p>
+            <p className="text-sm text-tinta-2">
+              {lineas.length === 0
+                ? "¿Estás seguro? No cuenta como venta."
+                : "¿Estás seguro? Se cancela todo lo pedido (regresa al inventario) y se borra cualquier pago ya registrado. No cuenta como venta."}
+            </p>
 
             <button
               type="button"
@@ -688,7 +691,7 @@ export default function Comanda({
               }
               className="rounded-sm bg-vino px-4 py-3.5 font-medium text-crema disabled:opacity-40"
             >
-              {ocupado ? "Cancelando..." : "Sí, cancelar la mesa"}
+              {ocupado ? "Cancelando..." : lineas.length === 0 ? "Sí, cancelar la mesa" : "Sí, cancelar toda la cuenta"}
             </button>
           </div>
         </Hoja>
