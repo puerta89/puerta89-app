@@ -36,7 +36,7 @@ export default async function Barra() {
             <p className="text-lg font-medium">{sesion.sucursalNombre}</p>
           </div>
         )}
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <div className="text-right">
             <p className="text-[11px] tracking-widest uppercase opacity-75">
               {sesion.rol === "dueno" ? "Dueño" : sesion.rol}
