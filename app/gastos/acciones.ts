@@ -29,3 +29,47 @@ export async function nuevoGasto(
   revalidatePath("/panel");
   return null;
 }
+
+export async function editarGasto(
+  gastoId: string,
+  categoria: string,
+  concepto: string,
+  monto: number,
+  fecha: string,
+  recurrente: boolean,
+): Promise<{ error: string } | null> {
+  const sesion = await leerSesion();
+  if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
+  if (sesion.rol === "mesero") return { error: "Esto solo lo puede hacer el dueño." };
+
+  const supabase = supabaseServidor();
+  const { error } = await supabase.rpc("editar_gasto", {
+    p_empleado: sesion.empleadoId,
+    p_gasto: gastoId,
+    p_categoria: categoria,
+    p_concepto: concepto,
+    p_monto: monto,
+    p_fecha: fecha,
+    p_recurrente: recurrente,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/gastos");
+  revalidatePath("/panel");
+  return null;
+}
+
+export async function eliminarGasto(gastoId: string): Promise<{ error: string } | null> {
+  const sesion = await leerSesion();
+  if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
+  if (sesion.rol === "mesero") return { error: "Esto solo lo puede hacer el dueño." };
+
+  const supabase = supabaseServidor();
+  const { error } = await supabase.rpc("eliminar_gasto", {
+    p_empleado: sesion.empleadoId,
+    p_gasto: gastoId,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/gastos");
+  revalidatePath("/panel");
+  return null;
+}

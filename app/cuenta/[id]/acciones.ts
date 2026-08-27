@@ -219,16 +219,15 @@ export async function partirCuenta(
 /** Para una mesa que se abrió por error (o donde ya se cancelaron todos
  * los renglones): la cierra sin que cuente como venta, y deja el banco
  * libre. Solo si no tiene consumo activo ni pagos. */
-export async function cancelarCuenta(ticketId: string, motivo: string): Promise<Falla> {
+export async function cancelarCuenta(ticketId: string, motivo?: string): Promise<Falla> {
   const sesion = await leerSesion();
   if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
-  if (!motivo.trim()) return { error: "Falta decir por qué se cancela." };
 
   const supabase = supabaseServidor();
   const { error } = await supabase.rpc("cancelar_cuenta", {
     p_empleado: sesion.empleadoId,
     p_ticket: ticketId,
-    p_motivo: motivo.trim(),
+    p_motivo: motivo?.trim() || null,
   });
   if (error) return { error: error.message };
   revalidatePath("/barra");

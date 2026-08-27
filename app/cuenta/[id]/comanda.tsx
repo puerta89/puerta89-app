@@ -83,7 +83,6 @@ export default function Comanda({
   const [codigoJefe, setCodigoJefe] = useState("");
   const [motivo, setMotivo] = useState("");
   const [cancelandoMesa, setCancelandoMesa] = useState(false);
-  const [motivoCancelar, setMotivoCancelar] = useState("");
   const [ocupado, empezar] = useTransition();
 
   const sabores_helado = useMemo(
@@ -668,45 +667,28 @@ export default function Comanda({
         <Hoja
           titulo="Cancelar esta mesa"
           sub="No se cobró nada — el banco queda libre"
-          cerrar={() => {
-            setCancelandoMesa(false);
-            setMotivoCancelar("");
-          }}
+          cerrar={() => setCancelandoMesa(false)}
         >
           <div className="flex flex-col gap-4 p-4">
-            <label className="flex flex-col gap-1.5 text-sm">
-              ¿Por qué?
-              <input
-                value={motivoCancelar}
-                onChange={(e) => setMotivoCancelar(e.target.value)}
-                placeholder="Se abrió sin querer, mesa vacía..."
-                className="rounded-sm border border-vino/25 px-3 py-3 outline-none focus:border-vino"
-              />
-            </label>
-
-            <p className="text-xs text-tinta-2">
-              No se borra nada: queda anotado quién la canceló y por qué. No
-              cuenta como venta.
-            </p>
+            <p className="text-sm text-tinta-2">¿Estás seguro? No cuenta como venta.</p>
 
             <button
               type="button"
-              disabled={ocupado || !motivoCancelar.trim()}
+              disabled={ocupado}
               onClick={() =>
                 empezar(async () => {
                   setError(null);
-                  const r = await cancelarCuenta(ticketId, motivoCancelar);
+                  const r = await cancelarCuenta(ticketId);
                   if (r?.error) setError(r.error);
                   else {
                     setCancelandoMesa(false);
-                    setMotivoCancelar("");
                     router.push("/barra");
                   }
                 })
               }
               className="rounded-sm bg-vino px-4 py-3.5 font-medium text-crema disabled:opacity-40"
             >
-              {ocupado ? "Cancelando..." : "Cancelar la mesa"}
+              {ocupado ? "Cancelando..." : "Sí, cancelar la mesa"}
             </button>
           </div>
         </Hoja>
