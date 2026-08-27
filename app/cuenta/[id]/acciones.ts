@@ -216,9 +216,11 @@ export async function partirCuenta(
   return { nuevoTicket: data as string };
 }
 
-/** Para una mesa que se abrió por error (o donde ya se cancelaron todos
- * los renglones): la cierra sin que cuente como venta, y deja el banco
- * libre. Solo si no tiene consumo activo ni pagos. */
+/** Cancela la cuenta completa — de una mesa vacía que se abrió por error,
+ * o de una cuenta con consumo/pagos reales (revierte el inventario de
+ * cada renglón y borra los pagos registrados, como si nunca hubiera
+ * pasado). No cuenta como venta, y deja el banco libre. Solo dueño o
+ * gerente; no pide motivo (queda uno genérico si no se da ninguno). */
 export async function cancelarCuenta(ticketId: string, motivo?: string): Promise<Falla> {
   const sesion = await leerSesion();
   if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };

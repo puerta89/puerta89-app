@@ -44,29 +44,48 @@ export default function EditarProducto({
   item,
   categorias,
   insumos,
+  catalogo,
   cerrar,
 }: {
   item: ItemCatalogoCompleto;
   categorias: Categoria[];
   insumos: Insumo[];
+  catalogo: ItemCatalogoCompleto[];
   cerrar: () => void;
 }) {
   const router = useRouter();
   const [detalle, setDetalle] = useState<DetalleProducto | null>(null);
-  const [cargando, setCargando] = useState(true);
+  // Solo lo que no viene ya en "catalogo" (los ingredientes de receta, y si
+  // se puede eliminar) tarda en llegar del servidor — todo lo demás
+  // (nombre, categoría, precio, costo de cada presentación) se prellena de
+  // una vez, sin esperar, para que el panel no se sienta trabado al abrirlo.
+  const [cargandoIngredientes, setCargandoIngredientes] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [ocupado, empezar] = useTransition();
   const [confirmandoEliminar, setConfirmandoEliminar] = useState(false);
 
-  const [nombre, setNombre] = useState("");
-  const [categoriaId, setCategoriaId] = useState("");
-  const [tipoVino, setTipoVino] = useState<string | null>(null);
-  const [presentaciones, setPresentaciones] = useState<FilaPresentacion[]>([]);
+  const presentacionesDelProducto = useState(() =>
+    catalogo.filter((i) => i.producto_id === item.producto_id),
+  )[0];
+
+  const [nombre, setNombre] = useState(item.producto);
+  const [categoriaId, setCategoriaId] = useState(
+    () => categorias.find((c) => c.nombre === item.categoria)?.id ?? "",
+  );
+  const [tipoVino, setTipoVino] = useState<string | null>(item.tipo_vino);
+  const [presentaciones, setPresentaciones] = useState<FilaPresentacion[]>(() =>
+    presentacionesDelProducto.map((p) => ({
+      presentacion_id: p.presentacion_id,
+      nombre: p.presentacion,
+      precio: p.precio === null ? "" : String(p.precio),
+      costo: p.costo === null ? "" : String(p.costo),
+    })),
+  );
   const [ingredientes, setIngredientes] = useState<FilaIngrediente[]>([]);
 
   useEffect(() => {
     let vivo = true;
-    setCargando(true);
+    setCargandoIngredientes(true);
     obtenerDetalleProducto(item.producto_id).then((r) => {
       if (!vivo) return;
       if ("error" in r) {
@@ -74,6 +93,8 @@ export default function EditarProducto({
       } else {
         const d = r.detalle;
         setDetalle(d);
+        // Se refresca con los valores de verdad del servidor, por si
+        // alguien más cambió algo justo antes de que se abriera el panel.
         setNombre(d.nombre);
         setCategoriaId(d.categoria_id);
         setTipoVino(d.tipo_vino);
@@ -100,7 +121,7 @@ export default function EditarProducto({
           })),
         );
       }
-      setCargando(false);
+      setCargandoIngredientes(false);
     });
     return () => {
       vivo = false;
@@ -108,7 +129,14 @@ export default function EditarProducto({
   }, [item.producto_id]);
 
   const categoriaNombre = categorias.find((c) => c.id === categoriaId)?.nombre ?? "";
-  const esVino = categoriaNombre === "Vinos" || tipoVino !== null;
+  const esVino = categoriaNombre === "Vinos";
+
+  function cambiarCategoria(nuevaCategoriaId: string) {
+    setCategoriaId(nuevaCategoriaId);
+    const nuevoNombre = categorias.find((c) => c.id === nuevaCategoriaId)?.nombre ?? "";
+    // Si deja de ser Vinos, no tiene caso arrastrar un tipo de vino viejo.
+    if (nuevoNombre !== "Vinos") setTipoVino(null);
+  }
 
   function unidadDe(f: FilaIngrediente) {
     if (f.modo === "nuevo") return f.unidadNueva;
@@ -158,6 +186,13 @@ export default function EditarProducto({
   }
 
   function elegirInsumoExistente(clave: number, insumoId: string) {
+    // Si ya está usado en otro renglón, guardar solo se quedaría con el
+    // último (la receta no puede repetir el mismo insumo dos veces).
+    const yaUsado = ingredientes.some((f) => f.clave !== clave && f.insumoId === insumoId);
+    if (yaUsado) {
+      setError("Ese insumo ya está en otro renglón — quítalo de ahí o cambia la cantidad ahí mismo.");
+      return;
+    }
     const insumo = insumos.find((i) => i.id === insumoId);
     cambiarIngrediente(clave, {
       insumoId,
@@ -196,7 +231,9 @@ export default function EditarProducto({
     nombre.trim().length > 0 &&
     !!categoriaId &&
     presentacionesValidas &&
-    (hayIngredientes ? ingredientesValidos : true);
+    (hayIngredientes ? ingredientesValidos : true) &&
+    (!esVino || !!tipoVino) &&
+    !cargandoIngredientes;
 
   function guardar() {
     setError(null);
@@ -232,10 +269,10 @@ export default function EditarProducto({
   }
 
   function alternarActivo() {
-    if (!detalle) return;
+    const activoAhora = detalle ? detalle.activo : item.activo;
     setError(null);
     empezar(async () => {
-      const r = await cambiarActivoProducto(item.producto_id, !detalle.activo);
+      const r = await cambiarActivoProducto(item.producto_id, !activoAhora);
       if (r?.error) setError(r.error);
       else {
         router.refresh();
@@ -264,7 +301,7 @@ export default function EditarProducto({
             <p className="font-medium">{item.producto}</p>
             <p className="text-xs text-tinta-2">
               {item.categoria}
-              {detalle && !detalle.activo && " · inactivo"}
+              {(detalle ? !detalle.activo : !item.activo) && " · inactivo"}
             </p>
           </div>
           <button
@@ -276,11 +313,7 @@ export default function EditarProducto({
           </button>
         </div>
 
-        {cargando ? (
-          <p className="p-4 text-sm text-tinta-2">Cargando...</p>
-        ) : !detalle ? (
-          <p className="rounded-sm bg-vino/10 m-4 px-4 py-3 text-sm text-vino">{error}</p>
-        ) : (
+        {(
           <div className="flex flex-col gap-3 p-4">
             <label className="flex flex-col gap-1.5 text-sm">
               Nombre
@@ -295,7 +328,7 @@ export default function EditarProducto({
               Categoría
               <select
                 value={categoriaId}
-                onChange={(e) => setCategoriaId(e.target.value)}
+                onChange={(e) => cambiarCategoria(e.target.value)}
                 className="rounded-sm border border-vino/25 px-3 py-3 outline-none focus:border-vino"
               >
                 {categorias.map((c) => (
@@ -547,14 +580,14 @@ export default function EditarProducto({
             <div className="flex flex-col gap-2 border-t border-vino/15 pt-3">
               <button
                 type="button"
-                disabled={ocupado}
+                disabled={ocupado || cargandoIngredientes}
                 onClick={alternarActivo}
                 className="rounded-sm border border-vino/25 px-4 py-3 text-sm text-vino disabled:opacity-40"
               >
-                {detalle.activo ? "Desactivar (fin de temporada)" : "Reactivar"}
+                {(detalle ? detalle.activo : item.activo) ? "Desactivar (fin de temporada)" : "Reactivar"}
               </button>
 
-              {detalle.puede_eliminar &&
+              {detalle?.puede_eliminar &&
                 (confirmandoEliminar ? (
                   <div className="flex flex-col gap-2 rounded-sm border border-vino/25 bg-vino/5 p-3">
                     <p className="text-xs text-tinta-2">

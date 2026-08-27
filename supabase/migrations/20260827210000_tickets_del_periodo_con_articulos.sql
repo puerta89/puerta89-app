@@ -12,7 +12,13 @@
 -- (1 Bola)"), subtotal, descuento, propina, total, y cuánto de eso fue
 -- efectivo/tarjeta.
 
-create or replace function public.tickets_del_periodo(p_sucursal uuid, p_desde date, p_hasta date)
+-- OJO: esta versión le agrega una columna nueva ("articulos") en medio de
+-- la lista de columnas — Postgres no deja cambiar las columnas de salida
+-- de una función con solo CREATE OR REPLACE, así que primero hay que
+-- tirarla (si no, aplicar las migraciones desde cero truena aquí mismo).
+drop function if exists public.tickets_del_periodo(uuid, date, date);
+
+create function public.tickets_del_periodo(p_sucursal uuid, p_desde date, p_hasta date)
 returns table(
   folio bigint,
   fecha date,

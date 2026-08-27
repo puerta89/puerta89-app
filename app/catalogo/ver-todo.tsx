@@ -152,6 +152,7 @@ export default function VerTodo({
           item={abierto}
           categorias={categorias}
           insumos={insumos}
+          catalogo={catalogo}
           cerrar={() => setAbierto(null)}
         />
       )}

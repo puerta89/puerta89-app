@@ -54,12 +54,16 @@ export default function Cobro({
       return;
     }
     setError(null);
-    setPlan(dividirEntre(falta, n));
-    setPagadas(new Set());
+    const partes = dividirEntre(falta, n);
+    setPlan(partes);
+    // Si a alguien le toca $0 (falta muy chica repartida entre muchos), no
+    // hay nada que cobrarle — se marca de una vez, para no ofrecerle un
+    // botón que el servidor siempre va a rechazar.
+    setPagadas(new Set(partes.flatMap((p, i) => (p <= 0 ? [i] : []))));
   }
 
   function cobrarParte(i: number, metodo: "efectivo" | "tarjeta") {
-    if (!plan) return;
+    if (!plan || !(plan[i] > 0)) return;
     setError(null);
     empezar(async () => {
       const r = await agregarPago(ticketId, metodo, plan[i], null);

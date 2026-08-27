@@ -429,7 +429,12 @@ export async function traerTicketsPeriodo(sucursalId: string, desde: string, has
     p_sucursal: sucursalId, p_desde: desde, p_hasta: hasta,
   });
   if (error) throw new Error(`No se pudieron leer los tickets: ${error.message}`);
-  return (data ?? []).map((r: Record<string, unknown>) => num(r)) as unknown as TicketPeriodo[];
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    // "bancos" es un string_agg — con un solo banco (el caso normal) se ve
+    // como "12", que num() convertiría a number si no se protege aquí.
+    ...num(r),
+    bancos: r.bancos == null ? null : String(r.bancos),
+  })) as unknown as TicketPeriodo[];
 }
 
 export type Categoria = { id: string; nombre: string };
