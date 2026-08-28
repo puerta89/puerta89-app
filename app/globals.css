@@ -1,7 +1,12 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* Paleta oficial del manual de identidad de Puerta 89 */
-@theme {
+/* Paleta oficial del manual de identidad de Puerta 89 — la lista de
+   colores/fuentes de marca vive en tailwind.config.ts (v3); aquí se
+   dejan también como variables de CSS para el par que se usa directo
+   fuera de clases de Tailwind (el body, más abajo). */
+:root {
   --color-rosa-claro: #f4b3b3;
   --color-rosa: #ac5b67;
   --color-vino: #781727;

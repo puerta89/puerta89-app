@@ -17,13 +17,21 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "autoprefixer": "^10.5.4",
     "eslint": "^9",
     "eslint-config-next": "16.3.2",
-    "tailwindcss": "^4",
+    "tailwindcss": "^3.4.19",
     "typescript": "^5"
-  }
+  },
+  "browserslist": [
+    "safari >= 12",
+    "ios_saf >= 12",
+    "chrome >= 90",
+    "firefox >= 90",
+    "edge >= 90",
+    "not dead"
+  ]
 }
