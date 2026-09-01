@@ -8,11 +8,9 @@ import {
   traerMovimientosCaja,
   traerPropinasCorte,
   traerCortesAbiertosAntes,
-  traerTicketsPeriodo,
   hoyEnMexico,
 } from "@/lib/datos";
 import Caja from "./caja";
-import Recibos from "./recibos";
 
 export const metadata = { title: "Corte del día · Puerta 89" };
 
@@ -37,11 +35,10 @@ export default async function Corte({
   const fecha = /^\d{4}-\d{2}-\d{2}$/.test(pedida) && pedida <= hoy ? pedida : hoy;
   const esHoy = fecha === hoy;
 
-  const [resumen, equipo, delDia, recibos, pendientes] = await Promise.all([
+  const [resumen, equipo, delDia, pendientes] = await Promise.all([
     traerResumenDia(sesion.sucursalId, fecha),
     traerEmpleados(sesion.sucursalId),
     traerMeserosDelDia(sesion.sucursalId, fecha),
-    traerTicketsPeriodo(sesion.sucursalId, fecha, fecha),
     // El aviso solo se muestra parado en hoy (más abajo), pero pedirlo
     // siempre es más simple que condicionar la consulta misma.
     traerCortesAbiertosAntes(sesion.sucursalId, hoy),
@@ -149,7 +146,12 @@ export default async function Corte({
           propinas={propinas}
         />
 
-        <Recibos recibos={recibos} />
+        <Link
+          href={`/tickets?desde=${fecha}&hasta=${fecha}`}
+          className="rounded-sm border border-vino/25 bg-white px-5 py-4 text-center text-sm font-medium text-vino"
+        >
+          Ver los recibos de este día →
+        </Link>
       </div>
     </main>
   );

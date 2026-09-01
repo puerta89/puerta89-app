@@ -274,6 +274,55 @@ export async function traerCortesAbiertosAntes(
   return (data ?? []).map((r: { fecha: string }) => r.fecha);
 }
 
+export type CorteDelPeriodo = {
+  fecha: string;
+  estado: "sin_abrir" | "abierto" | "cerrado";
+  fondo_inicial: number;
+  ventas_efectivo: number;
+  ventas_tarjeta: number;
+  entradas: number;
+  salidas: number;
+  efectivo_esperado: number;
+  efectivo_contado: number | null;
+  sobrante: number | null;
+  propina_efectivo: number | null;
+  propina_tarjeta: number | null;
+  propina_total: number | null;
+  cerrado_por: string | null;
+};
+
+/** Cómo cerró (o cómo va) la caja de cada día en un rango — para la
+ * pantalla /tickets, que necesita poder ver "cuánto quedó la caja de ayer"
+ * sin tener que entrar día por día a /corte. */
+export async function traerCortesDelPeriodo(
+  sucursalId: string,
+  desde: string,
+  hasta: string,
+): Promise<CorteDelPeriodo[]> {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("cortes_del_periodo", {
+    p_sucursal: sucursalId,
+    p_desde: desde,
+    p_hasta: hasta,
+  });
+  if (error) throw new Error(`No se pudieron leer los cortes del periodo: ${error.message}`);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    ...aNumero(r, [
+      "fondo_inicial",
+      "ventas_efectivo",
+      "ventas_tarjeta",
+      "entradas",
+      "salidas",
+      "efectivo_esperado",
+      "efectivo_contado",
+      "sobrante",
+      "propina_efectivo",
+      "propina_tarjeta",
+      "propina_total",
+    ]),
+  })) as unknown as CorteDelPeriodo[];
+}
+
 /** La fecha de hoy en México, no la del servidor. */
 export function hoyEnMexico() {
   return new Intl.DateTimeFormat("en-CA", {
