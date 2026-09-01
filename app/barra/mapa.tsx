@@ -55,7 +55,14 @@ export default function Mapa({
 
   function picar(b: BancoDelMapa) {
     setError(null);
-    if (b.cuentas.length > 0) {
+    // Con una sola cuenta en el banco, directo a su ticket — no hay nada
+    // que elegir. El panel se abre encima del mapa, sin dejarlo.
+    if (b.cuentas.length === 1) {
+      setMirando(null);
+      router.push(`/cuenta/${b.cuentas[0].ticket_id}`);
+      return;
+    }
+    if (b.cuentas.length > 1) {
       setElegidos([]);
       setMirando(b);
       return;

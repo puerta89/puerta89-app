@@ -27,13 +27,19 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+  modal,
+}: LayoutProps<"/"> & { modal: React.ReactNode }) {
   return (
     <html
       lang="es"
       className={`${cormorant.variable} ${archivo.variable} h-full antialiased`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        {children}
+        {modal}
+      </body>
     </html>
   );
 }

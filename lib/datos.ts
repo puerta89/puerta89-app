@@ -258,6 +258,22 @@ export async function traerPropinasCorte(corteId: string) {
   }));
 }
 
+/** Días anteriores a p_fecha cuyo corte se quedó abierto — para avisar en
+ * /corte que hay una caja pendiente de cerrar a mano, en vez de que se
+ * quede invisible en cuanto empieza el día siguiente. */
+export async function traerCortesAbiertosAntes(
+  sucursalId: string,
+  fecha: string,
+): Promise<string[]> {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("cortes_abiertos_antes", {
+    p_sucursal: sucursalId,
+    p_fecha: fecha,
+  });
+  if (error) throw new Error(`No se pudieron leer los cortes pendientes: ${error.message}`);
+  return (data ?? []).map((r: { fecha: string }) => r.fecha);
+}
+
 /** La fecha de hoy en México, no la del servidor. */
 export function hoyEnMexico() {
   return new Intl.DateTimeFormat("en-CA", {
