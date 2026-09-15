@@ -323,6 +323,32 @@ export async function traerCortesDelPeriodo(
   })) as unknown as CorteDelPeriodo[];
 }
 
+export type TicketAbierto = {
+  ticket_id: string;
+  estado: "abierto" | "por_cobrar";
+  personas: number;
+  abierto_en: string;
+  mesero: string | null;
+  bancos: number[];
+  total: number;
+};
+
+/** Todas las cuentas en curso de la sucursal — con mesa o sin ella — para
+ * el botón "Tickets abiertos" (sirve sobre todo a los meseros, que ya no
+ * tienen el mapa como pantalla principal). */
+export async function traerTicketsAbiertos(sucursalId: string): Promise<TicketAbierto[]> {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("tickets_abiertos_de", {
+    p_sucursal: sucursalId,
+  });
+  if (error) throw new Error(`No se pudieron leer los tickets abiertos: ${error.message}`);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    ...r,
+    bancos: (r.bancos as number[] | null) ?? [],
+    total: Number(r.total),
+  })) as unknown as TicketAbierto[];
+}
+
 /** La fecha de hoy en México, no la del servidor. */
 export function hoyEnMexico() {
   return new Intl.DateTimeFormat("en-CA", {

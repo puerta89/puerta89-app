@@ -13,6 +13,10 @@ export type Sesion = {
   sucursalColor: string;
   sucursalColorTexto: string;
   puedeCambiarSucursal: boolean;
+  // La cuenta que se está armando ahora mismo, tomada antes de saber la
+  // mesa (ver /barra/nueva-orden) — para volver a ella si el mesero sale
+  // y regresa a /barra, en vez de crear una cuenta vacía cada vez.
+  ordenActualId: string | null;
   expira: number;
 };
 
@@ -71,4 +75,29 @@ export async function leerSesion(): Promise<Sesion | null> {
 
 export async function cerrarSesion() {
   (await cookies()).delete(COOKIE);
+}
+
+/** Guarda o borra cuál es la cuenta que se está armando ahora mismo, sin
+ * tocar el resto de la sesión ni alargar cuánto falta para que expire.
+ * No hace nada si ya no hay sesión (p. ej. venció justo en ese momento). */
+export async function actualizarOrdenActual(id: string | null) {
+  const sesion = await leerSesion();
+  if (!sesion) return;
+  if (sesion.ordenActualId === id) return;
+
+  const nueva: Sesion = { ...sesion, ordenActualId: id };
+  const cuerpo = Buffer.from(JSON.stringify(nueva)).toString("base64url");
+  const galleta = await cookies();
+  const segundosRestantes = Math.max(
+    1,
+    Math.floor((nueva.expira - Date.now()) / 1000),
+  );
+
+  galleta.set(COOKIE, `${cuerpo}.${firmar(cuerpo)}`, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: segundosRestantes,
+  });
 }

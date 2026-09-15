@@ -2,7 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseServidor } from "@/lib/supabase/server";
-import { leerSesion } from "@/lib/sesion";
+import { leerSesion, actualizarOrdenActual } from "@/lib/sesion";
+
+/** Si esta cuenta era la que el mesero traía en curso (sin mesa todavía),
+ * ya se le puso mesa o se cerró/canceló — deja de ser "la orden actual"
+ * para que la próxima vez que entre a /barra empiece una nueva, no
+ * retome esta. Sin efecto si no era esta cuenta, o si no hay sesión. */
+async function soltarSiEraLaActual(sesion: { ordenActualId: string | null }, ticketId: string) {
+  if (sesion.ordenActualId === ticketId) await actualizarOrdenActual(null);
+}
 
 type Falla = { error: string } | null;
 
@@ -172,6 +180,7 @@ export async function cerrarCuenta(
     p_propina: propina,
   });
   if (error) return { error: error.message };
+  await soltarSiEraLaActual(sesion, ticketId);
   revalidatePath("/barra");
   return null;
 }
@@ -191,6 +200,8 @@ export async function moverCuenta(
     p_bancos: bancos,
   });
   if (error) return { error: error.message };
+  // Ya tiene mesa: deja de ser "la orden sin guardar" que /barra retoma.
+  await soltarSiEraLaActual(sesion, ticketId);
   revalidatePath(`/cuenta/${ticketId}`);
   revalidatePath("/barra");
   return null;
@@ -232,6 +243,7 @@ export async function cancelarCuenta(ticketId: string, motivo?: string): Promise
     p_motivo: motivo?.trim() || null,
   });
   if (error) return { error: error.message };
+  await soltarSiEraLaActual(sesion, ticketId);
   revalidatePath("/barra");
   return null;
 }

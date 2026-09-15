@@ -63,6 +63,8 @@ export async function cambiarSucursal(sucursalId: string): Promise<{ error: stri
     sucursalColor: nueva.sucursal_color,
     sucursalColorTexto: nueva.sucursal_color_texto,
     puedeCambiarSucursal: sesion.puedeCambiarSucursal,
+    // Cualquier orden en curso era de la otra sucursal — no aplica aquí.
+    ordenActualId: null,
   });
 
   redirect("/barra");

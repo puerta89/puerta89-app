@@ -58,6 +58,10 @@ export default function Comanda({
   rol: "dueno" | "gerente" | "mesero";
 }) {
   const router = useRouter();
+  // Sin mesa todavía: se tomó la orden primero (Mercedes). Mientras dure,
+  // se esconden las acciones que solo tienen sentido con mesa puesta —
+  // nada más "Guardar" (elegir mesa) o "Cobrar".
+  const modoSimple = bancosPropios.length === 0;
   const categorias = useMemo(
     () => [...new Set(catalogo.map((i) => i.categoria))],
     [catalogo],
@@ -119,7 +123,10 @@ export default function Comanda({
     setCantidad(1);
   }
 
-  function correr(fn: () => Promise<{ error: string } | null>) {
+  function correr(
+    fn: () => Promise<{ error: string } | null>,
+    alExito?: () => void,
+  ) {
     setError(null);
     empezar(async () => {
       const r = await fn();
@@ -132,7 +139,8 @@ export default function Comanda({
         setMoviendo(false);
         setPartiendo(false);
         setAPartir([]);
-        router.refresh();
+        if (alExito) alExito();
+        else router.refresh();
       }
     });
   }
@@ -345,38 +353,40 @@ export default function Comanda({
           <span className="tabular-nums">{pesos(total)}</span>
         </div>
 
-        <div className="flex gap-2 px-4 pt-3">
-          <button
-            type="button"
-            onClick={() => {
-              setDestino(bancosPropios);
-              setMoviendo(true);
-            }}
-            className={
-              bancosPropios.length === 0
-                ? "flex-1 rounded-sm bg-vino px-3 py-2.5 text-xs font-medium text-crema"
-                : "flex-1 rounded-sm border border-vino/25 px-3 py-2.5 text-xs text-vino"
-            }
-          >
-            {bancosPropios.length === 0 ? "Elegir mesa" : "Se cambiaron de lugar"}
-          </button>
-          {lineas.length > 1 && (
+        {(!modoSimple || lineas.length > 0) && (
+          <div className="flex gap-2 px-4 pt-3">
             <button
               type="button"
               onClick={() => {
-                setAPartir([]);
-                setPartiendo(true);
+                setDestino(bancosPropios);
+                setMoviendo(true);
               }}
-              className="flex-1 rounded-sm border border-vino/25 px-3 py-2.5 text-xs text-vino"
+              className={
+                modoSimple
+                  ? "flex-1 rounded-sm bg-vino px-3 py-2.5 text-xs font-medium text-crema"
+                  : "flex-1 rounded-sm border border-vino/25 px-3 py-2.5 text-xs text-vino"
+              }
             >
-              Pagan por separado
+              {modoSimple ? "Guardar" : "Se cambiaron de lugar"}
             </button>
-          )}
-        </div>
+            {lineas.length > 1 && !modoSimple && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAPartir([]);
+                  setPartiendo(true);
+                }}
+                className="flex-1 rounded-sm border border-vino/25 px-3 py-2.5 text-xs text-vino"
+              >
+                Pagan por separado
+              </button>
+            )}
+          </div>
+        )}
 
         {lineas.length > 0 && (
           <div className="flex gap-2 px-4 pb-4">
-            {estado === "abierto" && (
+            {estado === "abierto" && !modoSimple && (
               <button
                 type="button"
                 disabled={ocupado}
@@ -485,10 +495,10 @@ export default function Comanda({
       {/* ─────────── SE CAMBIARON DE LUGAR ─────────── */}
       {moviendo && (
         <Hoja
-          titulo={bancosPropios.length === 0 ? "¿Dónde se sientan?" : "¿A dónde se cambiaron?"}
+          titulo={modoSimple ? "¿Dónde se sientan?" : "¿A dónde se cambiaron?"}
           sub={
-            bancosPropios.length === 0
-              ? "También se puede dejar sin mesa y cobrar directo"
+            modoSimple
+              ? "Al guardar, se limpia para tomar la siguiente orden"
               : "La cuenta se muda con ellos"
           }
           cerrar={() => setMoviendo(false)}
@@ -519,7 +529,7 @@ export default function Comanda({
               })}
             </div>
             <p className="text-xs text-tinta-2">
-              {bancosPropios.length === 0
+              {modoSimple
                 ? "Elige uno o varios bancos."
                 : "Los bancos donde están ahora ya vienen marcados. Quítalos y marca los nuevos."}{" "}
               Queda el rastro de dónde estuvieron y hasta cuándo.
@@ -527,14 +537,18 @@ export default function Comanda({
             <button
               type="button"
               disabled={ocupado || destino.length === 0}
-              onClick={() => correr(() => moverCuenta(ticketId, destino))}
+              onClick={() =>
+                correr(
+                  () => moverCuenta(ticketId, destino),
+                  // Sin mesa hasta ahora: al guardarla, se limpia la
+                  // pantalla y vuelven las categorías para la siguiente
+                  // orden — no se queda viendo esta cuenta ya sentada.
+                  modoSimple ? () => router.push("/barra") : undefined,
+                )
+              }
               className="rounded-sm bg-vino px-4 py-3.5 font-medium text-crema disabled:opacity-40"
             >
-              {ocupado
-                ? "Guardando..."
-                : bancosPropios.length === 0
-                  ? "Elegir mesa"
-                  : "Cambiar de lugar"}
+              {ocupado ? "Guardando..." : modoSimple ? "Guardar" : "Cambiar de lugar"}
             </button>
           </div>
         </Hoja>

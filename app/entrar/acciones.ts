@@ -40,6 +40,7 @@ export async function entrarConCodigo(
     sucursalColor: empleado.sucursal_color,
     sucursalColorTexto: empleado.sucursal_color_texto,
     puedeCambiarSucursal: empleado.puede_cambiar_sucursal,
+    ordenActualId: null,
   });
 
   redirect("/barra");

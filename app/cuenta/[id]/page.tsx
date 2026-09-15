@@ -28,10 +28,10 @@ export default async function Cuenta({ params }: PageProps<"/cuenta/[id]">) {
       >
         <div className="flex items-center gap-4">
           <Link
-            href="/barra"
+            href={sesion.rol === "mesero" ? "/tickets-abiertos" : "/barra"}
             className="rounded-sm border border-current/40 px-3 py-2 text-sm"
           >
-            ← Mapa
+            {sesion.rol === "mesero" ? "Tickets abiertos" : "← Mapa"}
           </Link>
           <div>
             <p className="text-[11px] tracking-widest uppercase opacity-75">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { leerSesion } from "@/lib/sesion";
+import { supabaseServidor } from "@/lib/supabase/server";
 import { traerMapa, traerSucursalesDisponibles } from "@/lib/datos";
 import { salir } from "../entrar/acciones";
 import Mapa from "./mapa";
@@ -11,6 +12,24 @@ export const metadata = { title: "Barra · Puerta 89" };
 export default async function Barra() {
   const sesion = await leerSesion();
   if (!sesion) redirect("/entrar");
+
+  // El mesero no ve el mapa: entra directo a tomar el pedido (categorías
+  // primero, mesa después). Si ya traía una orden sin guardar, la retoma
+  // en vez de dejarla botada y empezar otra.
+  if (sesion.rol === "mesero") {
+    if (sesion.ordenActualId) {
+      const supabase = supabaseServidor();
+      const { data } = await supabase.rpc("ticket_cabecera", {
+        p_sucursal: sesion.sucursalId,
+        p_ticket: sesion.ordenActualId,
+      });
+      const cab = data?.[0];
+      if (cab && (cab.bancos ?? []).length === 0) {
+        redirect(`/cuenta/${sesion.ordenActualId}`);
+      }
+    }
+    redirect("/barra/nueva-orden");
+  }
 
   const [zonas, sucursales] = await Promise.all([
     traerMapa(sesion.sucursalId),
@@ -43,46 +62,38 @@ export default async function Barra() {
             </p>
             <p className="text-lg font-medium">{sesion.nombre}</p>
           </div>
-          {sesion.rol !== "mesero" && (
-            <Link
-              href="/corte"
-              className="rounded-sm border border-current/40 px-4 py-2 text-sm"
-            >
-              Corte
-            </Link>
-          )}
-          {sesion.rol !== "mesero" && (
-            <Link
-              href="/tickets"
-              className="rounded-sm border border-current/40 px-4 py-2 text-sm"
-            >
-              Tickets
-            </Link>
-          )}
-          {sesion.rol !== "mesero" && (
-            <Link
-              href="/inventario"
-              className="rounded-sm border border-current/40 px-4 py-2 text-sm"
-            >
-              Inventario
-            </Link>
-          )}
-          {sesion.rol !== "mesero" && (
-            <Link
-              href="/panel"
-              className="rounded-sm border border-current/40 px-4 py-2 text-sm"
-            >
-              Panel
-            </Link>
-          )}
-          {sesion.rol !== "mesero" && (
-            <Link
-              href="/catalogo"
-              className="rounded-sm border border-current/40 px-4 py-2 text-sm"
-            >
-              Menú
-            </Link>
-          )}
+          {/* Solo dueño/gerente llegan hasta aquí — al mesero ya se le
+              mandó a tomar el pedido, más arriba. */}
+          <Link
+            href="/corte"
+            className="rounded-sm border border-current/40 px-4 py-2 text-sm"
+          >
+            Corte
+          </Link>
+          <Link
+            href="/tickets"
+            className="rounded-sm border border-current/40 px-4 py-2 text-sm"
+          >
+            Tickets
+          </Link>
+          <Link
+            href="/inventario"
+            className="rounded-sm border border-current/40 px-4 py-2 text-sm"
+          >
+            Inventario
+          </Link>
+          <Link
+            href="/panel"
+            className="rounded-sm border border-current/40 px-4 py-2 text-sm"
+          >
+            Panel
+          </Link>
+          <Link
+            href="/catalogo"
+            className="rounded-sm border border-current/40 px-4 py-2 text-sm"
+          >
+            Menú
+          </Link>
           {sesion.rol === "dueno" && (
             <Link
               href="/equipo"

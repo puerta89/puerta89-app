@@ -42,6 +42,7 @@ export default function Cobro({
   const [propina, setPropina] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [ocupado, empezar] = useTransition();
+  const [cerrando, setCerrando] = useState(false);
 
   // ── Dividir la cuenta entre varias personas (estilo Loyverse: elige
   // entre cuántos, arranca parejo, y cada parte se puede ajustar a
@@ -84,28 +85,48 @@ export default function Cobro({
     setPagadas(new Set());
   }
 
+  /** Se llama justo después de un pago que sí se guardó. Si con ese pago
+   * ya queda cubierto el total, cierra la cuenta de una vez — nadie
+   * tiene que picarle "Cerrar" aparte. Mercedes: "en automático se tiene
+   * que cerrar la pestaña, porque luego se traba o se pierde tiempo". */
+  async function seguirTrasPago(montoPagado: number) {
+    const quedaPor = Math.round((falta - montoPagado) * 100) / 100;
+    if (quedaPor > 0) {
+      router.refresh();
+      return;
+    }
+    setCerrando(true);
+    const r = await cerrarCuenta(ticketId, Number(propina) || 0);
+    if (r?.error) {
+      setError(r.error);
+      setCerrando(false);
+      router.refresh();
+      return;
+    }
+    router.push("/barra");
+  }
+
   function cobrarParte(i: number, metodo: "efectivo" | "tarjeta") {
     if (!plan || !(plan[i] > 0)) return;
     setError(null);
+    const parteMonto = plan[i];
     empezar(async () => {
-      const r = await agregarPago(ticketId, metodo, plan[i], null);
-      if (r?.error) setError(r.error);
-      else {
-        setPagadas((p) => new Set(p).add(i));
-        router.refresh();
+      const r = await agregarPago(ticketId, metodo, parteMonto, null);
+      if (r?.error) {
+        setError(r.error);
+        return;
       }
+      setPagadas((p) => new Set(p).add(i));
+      await seguirTrasPago(parteMonto);
     });
   }
 
-  function correr(fn: () => Promise<{ error: string } | null>, alCerrar?: () => void) {
+  function quitar(pagoId: string) {
     setError(null);
     empezar(async () => {
-      const r = await fn();
+      const r = await quitarPago(ticketId, pagoId);
       if (r?.error) setError(r.error);
-      else {
-        alCerrar?.();
-        router.refresh();
-      }
+      else router.refresh();
     });
   }
 
@@ -116,10 +137,16 @@ export default function Cobro({
       setError("Ese monto no se entiende.");
       return;
     }
-    correr(
-      () => agregarPago(ticketId, metodo, n, null),
-      () => setMonto(""),
-    );
+    setError(null);
+    empezar(async () => {
+      const r = await agregarPago(ticketId, metodo, n, null);
+      if (r?.error) {
+        setError(r.error);
+        return;
+      }
+      setMonto("");
+      await seguirTrasPago(n);
+    });
   }
 
   return (
@@ -143,7 +170,7 @@ export default function Cobro({
                   <button
                     type="button"
                     disabled={ocupado}
-                    onClick={() => correr(() => quitarPago(ticketId, p.pago_id))}
+                    onClick={() => quitar(p.pago_id)}
                     className="rounded-sm border border-vino/25 px-2.5 py-1 text-xs text-vino disabled:opacity-40"
                   >
                     Quitar
@@ -165,168 +192,205 @@ export default function Cobro({
       </div>
 
       {falta > 0 && (
-        <div className="flex flex-col gap-3 rounded-sm border border-vino/15 bg-white px-5 py-5">
-          <p className="text-sm text-tinta-2">¿Se divide entre varias personas?</p>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                disabled={entreN <= 2 || yaSeCobroAlguna}
-                onClick={() => cambiarN(-1)}
-                className="flex size-9 items-center justify-center rounded-full border-2 border-vino/30 text-lg text-vino disabled:opacity-30"
-                aria-label="Una persona menos"
-              >
-                −
-              </button>
-              <span className="w-24 text-center text-sm tabular-nums">
-                {entreN} {entreN === 1 ? "persona" : "personas"}
-              </span>
-              <button
-                type="button"
-                disabled={yaSeCobroAlguna}
-                onClick={() => cambiarN(1)}
-                className="flex size-9 items-center justify-center rounded-full border-2 border-vino/30 text-lg text-vino disabled:opacity-30"
-                aria-label="Una persona más"
-              >
-                +
-              </button>
-            </div>
-            {!plan ? (
-              <button
-                type="button"
-                onClick={() => dividirDesde(entreN)}
-                className="rounded-sm border border-vino/25 px-4 py-2 text-sm text-vino"
-              >
-                Dividir
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={quitarDivision}
-                className="rounded-sm px-2 text-sm text-vino underline"
-              >
-                Quitar división
-              </button>
-            )}
-          </div>
-
-          {plan && (
-            <div className="flex flex-col gap-2 border-t border-vino/10 pt-3">
-              {plan.map((parte, i) => {
-                const pagada = pagadas.has(i);
-                return (
-                  <div
-                    key={i}
-                    className={`flex items-center justify-between gap-3 rounded-sm border px-3 py-2.5 text-sm ${
-                      pagada ? "border-[#556B4A]/30 bg-[#556B4A]/10" : "border-vino/15"
-                    }`}
-                  >
-                    <span className="text-tinta-2">Persona {i + 1}</span>
-                    {pagada ? (
-                      <>
-                        <span className="tabular-nums font-medium">{pesos(parte)}</span>
-                        <span className="text-xs text-[#556B4A]">Pagó ✓</span>
-                      </>
-                    ) : (
-                      <>
-                        <input
-                          inputMode="decimal"
-                          value={parte}
-                          onChange={(e) => actualizarParte(i, e.target.value)}
-                          className="w-24 rounded-sm border border-vino/25 px-2 py-1.5 text-right text-sm tabular-nums outline-none focus:border-vino"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            disabled={ocupado}
-                            onClick={() => cobrarParte(i, "efectivo")}
-                            className="rounded-sm border border-vino/25 px-3 py-1.5 text-xs text-vino disabled:opacity-40"
-                          >
-                            Efectivo
-                          </button>
-                          <button
-                            type="button"
-                            disabled={ocupado}
-                            onClick={() => cobrarParte(i, "tarjeta")}
-                            className="rounded-sm bg-vino px-3 py-1.5 text-xs text-crema disabled:opacity-40"
-                          >
-                            Tarjeta
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-              <p className="text-xs text-tinta-2">
-                Cada parte arranca pareja, pero se puede cambiar el monto antes
-                de cobrarla — no siempre le toca lo mismo a cada quien. Cada
-                quien paga lo suyo por separado, se va sumando arriba.
-              </p>
-            </div>
-          )}
-
-          <label className="border-t border-vino/10 pt-3 text-sm text-tinta-2" htmlFor="monto">
-            O cobra un monto libre. Si lo dejas vacío se cobra todo lo que falta.
+        <>
+          <label
+            className="flex flex-col gap-1.5 rounded-sm border border-vino/15 bg-white px-5 py-4 text-sm text-tinta-2"
+            htmlFor="propina"
+          >
+            Propina, si la dejaron en la app (opcional)
+            <input
+              id="propina"
+              inputMode="decimal"
+              value={propina}
+              onChange={(e) => setPropina(e.target.value)}
+              placeholder="0"
+              className="rounded-sm border border-vino/25 px-4 py-3 text-xl tabular-nums text-tinta outline-none focus:border-vino"
+            />
+            <span className="text-xs">
+              En cuanto se cubra el total, la cuenta se cierra sola con esta
+              propina.
+            </span>
           </label>
-          <input
-            id="monto"
-            inputMode="decimal"
-            value={monto}
-            onChange={(e) => setMonto(e.target.value)}
-            placeholder={pesos(falta)}
-            className="rounded-sm border border-vino/25 px-4 py-3 text-xl tabular-nums outline-none focus:border-vino"
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              disabled={ocupado}
-              onClick={() => cobrar("efectivo")}
-              className="rounded-sm border-2 border-vino px-4 py-4 font-medium text-vino disabled:opacity-50"
-            >
-              Efectivo
-            </button>
-            <button
-              type="button"
-              disabled={ocupado}
-              onClick={() => cobrar("tarjeta")}
-              className="rounded-sm bg-vino px-4 py-4 font-medium text-crema disabled:opacity-50"
-            >
-              Tarjeta
-            </button>
+
+          <div className="flex flex-col gap-3 rounded-sm border border-vino/15 bg-white px-5 py-5">
+            <p className="text-sm text-tinta-2">¿Se divide entre varias personas?</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={entreN <= 2 || yaSeCobroAlguna}
+                  onClick={() => cambiarN(-1)}
+                  className="flex size-9 items-center justify-center rounded-full border-2 border-vino/30 text-lg text-vino disabled:opacity-30"
+                  aria-label="Una persona menos"
+                >
+                  −
+                </button>
+                <span className="w-24 text-center text-sm tabular-nums">
+                  {entreN} {entreN === 1 ? "persona" : "personas"}
+                </span>
+                <button
+                  type="button"
+                  disabled={yaSeCobroAlguna}
+                  onClick={() => cambiarN(1)}
+                  className="flex size-9 items-center justify-center rounded-full border-2 border-vino/30 text-lg text-vino disabled:opacity-30"
+                  aria-label="Una persona más"
+                >
+                  +
+                </button>
+              </div>
+              {!plan ? (
+                <button
+                  type="button"
+                  onClick={() => dividirDesde(entreN)}
+                  className="rounded-sm border border-vino/25 px-4 py-2 text-sm text-vino"
+                >
+                  Dividir
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={quitarDivision}
+                  className="rounded-sm px-2 text-sm text-vino underline"
+                >
+                  Quitar división
+                </button>
+              )}
+            </div>
+
+            {plan && (
+              <div className="flex flex-col gap-2 border-t border-vino/10 pt-3">
+                {plan.map((parte, i) => {
+                  const pagada = pagadas.has(i);
+                  return (
+                    <div
+                      key={i}
+                      className={`flex items-center justify-between gap-3 rounded-sm border px-3 py-2.5 text-sm ${
+                        pagada ? "border-[#556B4A]/30 bg-[#556B4A]/10" : "border-vino/15"
+                      }`}
+                    >
+                      <span className="text-tinta-2">Persona {i + 1}</span>
+                      {pagada ? (
+                        <>
+                          <span className="tabular-nums font-medium">{pesos(parte)}</span>
+                          <span className="text-xs text-[#556B4A]">Pagó ✓</span>
+                        </>
+                      ) : (
+                        <>
+                          <input
+                            inputMode="decimal"
+                            value={parte}
+                            onChange={(e) => actualizarParte(i, e.target.value)}
+                            className="w-24 rounded-sm border border-vino/25 px-2 py-1.5 text-right text-sm tabular-nums outline-none focus:border-vino"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              disabled={ocupado || cerrando}
+                              onClick={() => cobrarParte(i, "efectivo")}
+                              className="rounded-sm border border-vino/25 px-3 py-1.5 text-xs text-vino disabled:opacity-40"
+                            >
+                              Efectivo
+                            </button>
+                            <button
+                              type="button"
+                              disabled={ocupado || cerrando}
+                              onClick={() => cobrarParte(i, "tarjeta")}
+                              className="rounded-sm bg-vino px-3 py-1.5 text-xs text-crema disabled:opacity-40"
+                            >
+                              Tarjeta
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+                <p className="text-xs text-tinta-2">
+                  Cada parte arranca pareja, pero se puede cambiar el monto antes
+                  de cobrarla — no siempre le toca lo mismo a cada quien. Cada
+                  quien paga lo suyo por separado, se va sumando arriba.
+                </p>
+              </div>
+            )}
+
+            <label className="border-t border-vino/10 pt-3 text-sm text-tinta-2" htmlFor="monto">
+              O cobra un monto libre. Si lo dejas vacío se cobra todo lo que falta.
+            </label>
+            <input
+              id="monto"
+              inputMode="decimal"
+              value={monto}
+              onChange={(e) => setMonto(e.target.value)}
+              placeholder={pesos(falta)}
+              className="rounded-sm border border-vino/25 px-4 py-3 text-xl tabular-nums outline-none focus:border-vino"
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={ocupado || cerrando}
+                onClick={() => cobrar("efectivo")}
+                className="rounded-sm border-2 border-vino px-4 py-4 font-medium text-vino disabled:opacity-50"
+              >
+                Efectivo
+              </button>
+              <button
+                type="button"
+                disabled={ocupado || cerrando}
+                onClick={() => cobrar("tarjeta")}
+                className="rounded-sm bg-vino px-4 py-4 font-medium text-crema disabled:opacity-50"
+              >
+                Tarjeta
+              </button>
+            </div>
+            <p className="text-xs text-tinta-2">
+              La tarjeta se cobra en la terminal del banco. Aquí solo se anota
+              con qué se pagó.
+            </p>
           </div>
-          <p className="text-xs text-tinta-2">
-            La tarjeta se cobra en la terminal del banco. Aquí solo se anota
-            con qué se pagó.
-          </p>
-        </div>
+        </>
       )}
 
-      {falta <= 0 && (
+      {cerrando && (
+        <p className="rounded-sm bg-[#556B4A]/10 px-4 py-3 text-center text-sm font-medium text-[#556B4A]">
+          Cubierta — cerrando la cuenta...
+        </p>
+      )}
+
+      {/* Se llega aquí casi nunca: solo si ya estaba cubierta desde antes
+          (por ejemplo, se recargó la página justo cuando se iba a cerrar
+          sola) y hace falta un botón de emergencia para terminar. */}
+      {falta <= 0 && !cerrando && (
         <div className="flex flex-col gap-3 rounded-sm border border-vino/15 bg-white px-5 py-5">
-          <label className="text-sm text-tinta-2" htmlFor="propina">
+          <label className="flex flex-col gap-1.5 text-sm text-tinta-2" htmlFor="propina">
             Propina, si la dejaron en la app (opcional)
+            <input
+              id="propina"
+              inputMode="decimal"
+              value={propina}
+              onChange={(e) => setPropina(e.target.value)}
+              placeholder="0"
+              className="rounded-sm border border-vino/25 px-4 py-3 text-xl tabular-nums text-tinta outline-none focus:border-vino"
+            />
           </label>
-          <input
-            id="propina"
-            inputMode="decimal"
-            value={propina}
-            onChange={(e) => setPropina(e.target.value)}
-            placeholder="0"
-            className="rounded-sm border border-vino/25 px-4 py-3 text-xl tabular-nums outline-none focus:border-vino"
-          />
           <button
             type="button"
             disabled={ocupado}
             onClick={() =>
-              correr(
-                () => cerrarCuenta(ticketId, Number(propina) || 0),
-                () => router.push("/barra"),
-              )
+              empezar(async () => {
+                setError(null);
+                setCerrando(true);
+                const r = await cerrarCuenta(ticketId, Number(propina) || 0);
+                if (r?.error) {
+                  setError(r.error);
+                  setCerrando(false);
+                  return;
+                }
+                router.push("/barra");
+              })
             }
             className="rounded-sm bg-vino px-4 py-4 text-lg font-medium text-crema disabled:opacity-50"
           >
-            {ocupado ? "Cerrando..." : "Cerrar la cuenta"}
+            Cerrar la cuenta
           </button>
           <p className="text-xs text-tinta-2">
             Al cerrar, los bancos quedan libres y la cuenta ya no se puede
