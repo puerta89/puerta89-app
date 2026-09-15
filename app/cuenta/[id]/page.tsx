@@ -3,6 +3,7 @@ import { obtenerCuenta } from "./datos-cuenta";
 import { etiquetaBancos } from "./etiqueta-bancos";
 import Reloj from "../../reloj";
 import Comanda from "./comanda";
+import { salir } from "../../entrar/acciones";
 
 export const metadata = { title: "Cuenta · Puerta 89" };
 
@@ -26,14 +27,33 @@ export default async function Cuenta({ params }: PageProps<"/cuenta/[id]">) {
         className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
         style={{ backgroundColor: sesion.sucursalColor, color: sesion.sucursalColorTexto }}
       >
-        <div className="flex items-center gap-4">
-          <Link
-            href={sesion.rol === "mesero" ? "/tickets-abiertos" : "/barra"}
-            className="rounded-sm border border-current/40 px-3 py-2 text-sm"
-          >
-            {sesion.rol === "mesero" ? "Tickets abiertos" : "← Mapa"}
-          </Link>
-          <div>
+        <div className="flex items-center gap-2">
+          {sesion.rol === "mesero" ? (
+            <>
+              <Link
+                href="/tickets-abiertos"
+                className="rounded-sm border border-current/40 px-3 py-2 text-sm"
+              >
+                Tickets abiertos
+              </Link>
+              <form action={salir}>
+                <button
+                  type="submit"
+                  className="rounded-sm border border-current/40 px-3 py-2 text-sm"
+                >
+                  Salir
+                </button>
+              </form>
+            </>
+          ) : (
+            <Link
+              href="/barra"
+              className="rounded-sm border border-current/40 px-3 py-2 text-sm"
+            >
+              ← Mapa
+            </Link>
+          )}
+          <div className="ml-2">
             <p className="text-[11px] tracking-widest uppercase opacity-75">
               {etiquetaBancos(bancos).titulo}
             </p>
