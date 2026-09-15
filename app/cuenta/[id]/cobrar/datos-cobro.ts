@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { leerSesion } from "@/lib/sesion";
 import { supabaseServidor } from "@/lib/supabase/server";
 import { traerLineas, traerPagos } from "@/lib/datos";
@@ -16,7 +16,12 @@ export async function obtenerCobro(id: string) {
     p_ticket: id,
   });
   const cab = cabRows?.[0];
-  if (!cab) notFound();
+  // Puede pasar de verdad: se está cobrando, el pago que faltaba la
+  // cierra sola (ver seguirTrasPago en cobro.tsx) y, si esta pantalla
+  // se vuelve a pedir justo en ese instante (antes de que la navegación
+  // dura hacia /barra termine de salir), la cuenta ya no aparece en
+  // estado abierto/por_cobrar. Mejor mandar a /barra que a un 404 seco.
+  if (!cab) redirect("/barra");
 
   const bancos: number[] = cab.bancos ?? [];
   const [lineas, pagos] = await Promise.all([traerLineas(id), traerPagos(id)]);

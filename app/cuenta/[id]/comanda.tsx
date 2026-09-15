@@ -177,7 +177,7 @@ export default function Comanda({
     ).values()];
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.45fr_1fr]">
+    <div className="grid gap-4 md:grid-cols-[1.4fr_1fr] md:items-start">
       {/* ─────────── MENÚ ─────────── */}
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
@@ -286,8 +286,8 @@ export default function Comanda({
       </section>
 
       {/* ─────────── LA CUENTA ─────────── */}
-      <section className="flex flex-col rounded-sm border border-vino/15 bg-white">
-        <div className="flex-1 px-4 py-3">
+      <section className="flex flex-col overflow-hidden rounded-sm border border-vino/15 bg-white md:sticky md:top-4 md:max-h-[calc(100dvh-2rem)]">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
           {lineas.length === 0 ? (
             <p className="py-10 text-center text-sm text-tinta-2">
               Todavía no han pedido nada.
@@ -348,12 +348,12 @@ export default function Comanda({
           )}
         </div>
 
-        <div className="flex items-center justify-between border-t-2 border-tinta px-4 py-3 text-lg font-medium">
+        <div className="flex shrink-0 items-center justify-between border-t-2 border-tinta px-4 py-3 text-lg font-medium">
           <span>Total</span>
           <span className="tabular-nums">{pesos(total)}</span>
         </div>
 
-        <div className="flex flex-col gap-2.5 px-4 pt-3 pb-4">
+        <div className="flex shrink-0 flex-col gap-2.5 bg-rosa-claro/10 px-4 pt-3 pb-4">
           {(!modoSimple || lineas.length > 0) && (
             <div className="flex gap-2">
               <button

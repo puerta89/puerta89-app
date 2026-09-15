@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { leerSesion } from "@/lib/sesion";
 import { supabaseServidor } from "@/lib/supabase/server";
 import { traerCatalogo, traerBotellas, traerLineas } from "@/lib/datos";
@@ -25,7 +25,9 @@ export async function obtenerCuenta(id: string) {
   ]);
 
   const cab = cabRows?.[0];
-  if (!cab) notFound();
+  // No un 404 en seco: esta cuenta ya se cerró/canceló, o ya no es de
+  // esta sesión — mejor mandar a algo útil que a una pantalla muerta.
+  if (!cab) redirect("/barra");
 
   const bancos: number[] = cab.bancos ?? [];
   const cabecera = {
