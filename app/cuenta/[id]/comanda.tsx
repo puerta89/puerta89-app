@@ -352,9 +352,13 @@ export default function Comanda({
               setDestino(bancosPropios);
               setMoviendo(true);
             }}
-            className="flex-1 rounded-sm border border-vino/25 px-3 py-2.5 text-xs text-vino"
+            className={
+              bancosPropios.length === 0
+                ? "flex-1 rounded-sm bg-vino px-3 py-2.5 text-xs font-medium text-crema"
+                : "flex-1 rounded-sm border border-vino/25 px-3 py-2.5 text-xs text-vino"
+            }
           >
-            Se cambiaron de lugar
+            {bancosPropios.length === 0 ? "Elegir mesa" : "Se cambiaron de lugar"}
           </button>
           {lineas.length > 1 && (
             <button
@@ -481,8 +485,12 @@ export default function Comanda({
       {/* ─────────── SE CAMBIARON DE LUGAR ─────────── */}
       {moviendo && (
         <Hoja
-          titulo="¿A dónde se cambiaron?"
-          sub="La cuenta se muda con ellos"
+          titulo={bancosPropios.length === 0 ? "¿Dónde se sientan?" : "¿A dónde se cambiaron?"}
+          sub={
+            bancosPropios.length === 0
+              ? "También se puede dejar sin mesa y cobrar directo"
+              : "La cuenta se muda con ellos"
+          }
           cerrar={() => setMoviendo(false)}
         >
           <div className="flex flex-col gap-3 p-4">
@@ -511,8 +519,10 @@ export default function Comanda({
               })}
             </div>
             <p className="text-xs text-tinta-2">
-              Los bancos donde están ahora ya vienen marcados. Quítalos y marca
-              los nuevos. Queda el rastro de dónde estuvieron y hasta cuándo.
+              {bancosPropios.length === 0
+                ? "Elige uno o varios bancos."
+                : "Los bancos donde están ahora ya vienen marcados. Quítalos y marca los nuevos."}{" "}
+              Queda el rastro de dónde estuvieron y hasta cuándo.
             </p>
             <button
               type="button"
@@ -520,7 +530,11 @@ export default function Comanda({
               onClick={() => correr(() => moverCuenta(ticketId, destino))}
               className="rounded-sm bg-vino px-4 py-3.5 font-medium text-crema disabled:opacity-40"
             >
-              {ocupado ? "Cambiando..." : "Cambiar de lugar"}
+              {ocupado
+                ? "Guardando..."
+                : bancosPropios.length === 0
+                  ? "Elegir mesa"
+                  : "Cambiar de lugar"}
             </button>
           </div>
         </Hoja>

@@ -101,11 +101,41 @@ export default function Mapa({
     });
   }
 
+  /** Toman la comanda antes de saber dónde se sientan (o si se sientan) —
+   * ej. alguien pide un helado para llevar. La mesa se elige después
+   * desde la cuenta ("¿Dónde se sientan?"), o se cobra directo sin
+   * mesa. */
+  function tomarOrden() {
+    setError(null);
+    empezar(async () => {
+      const r = await abrirCuenta(empleadoId, [], 1);
+      if ("error" in r) {
+        setError(r.error);
+        return;
+      }
+      router.push(`/cuenta/${r.ticketId}`);
+    });
+  }
+
   const libresPorZona = (z: ZonaDelMapa) =>
     z.bancos.filter((b) => b.cuentas.length === 0).length;
 
   return (
     <div className="flex flex-col gap-4">
+      {/* La forma recomendada de empezar: tomar el pedido primero y
+          decidir la mesa (o cobrar directo, para llevar) al final. */}
+      <button
+        type="button"
+        onClick={tomarOrden}
+        disabled={guardando}
+        className="flex flex-col items-start gap-0.5 rounded-sm bg-vino px-5 py-3.5 text-left text-crema disabled:opacity-50"
+      >
+        <span className="font-medium">+ Tomar orden</span>
+        <span className="text-xs opacity-80">
+          Primero piden, después eliges la mesa o cobras directo
+        </span>
+      </button>
+
       {/* Botones de zona, para cuando hay prisa y no quieres apuntar al banco */}
       <div className="flex flex-wrap gap-2">
         {zonas.map((z) => (

@@ -14,7 +14,8 @@ const pesos = (n: number) =>
 
 /** Reparte un total entre N personas, en centavos, para que sume exacto
  * (el resto de centavos se reparte entre los primeros, no se lo lleva
- * todo el último). */
+ * todo el último). Es solo el punto de partida — cada parte se puede
+ * ajustar a mano después, porque no siempre se divide parejo. */
 function dividirEntre(total: number, n: number): number[] {
   const centavos = Math.round(total * 100);
   const base = Math.floor(centavos / n);
@@ -42,24 +43,45 @@ export default function Cobro({
   const [error, setError] = useState<string | null>(null);
   const [ocupado, empezar] = useTransition();
 
-  // ── Dividir la cuenta entre varias personas ──────────────────────────
-  const [entrePersonas, setEntrePersonas] = useState(personas > 1 ? String(personas) : "");
+  // ── Dividir la cuenta entre varias personas (estilo Loyverse: elige
+  // entre cuántos, arranca parejo, y cada parte se puede ajustar a
+  // mano) ────────────────────────────────────────────────────────────
+  const [entreN, setEntreN] = useState(Math.max(2, personas));
   const [plan, setPlan] = useState<number[] | null>(null);
   const [pagadas, setPagadas] = useState<Set<number>>(new Set());
+  const yaSeCobroAlguna = pagadas.size > 0;
 
-  function calcularDivision() {
-    const n = Math.round(Number(entrePersonas));
-    if (!Number.isFinite(n) || n < 2) {
-      setError("Dividir entre cuántas personas — al menos 2.");
-      return;
-    }
-    setError(null);
+  function dividirDesde(n: number) {
     const partes = dividirEntre(falta, n);
     setPlan(partes);
     // Si a alguien le toca $0 (falta muy chica repartida entre muchos), no
     // hay nada que cobrarle — se marca de una vez, para no ofrecerle un
     // botón que el servidor siempre va a rechazar.
     setPagadas(new Set(partes.flatMap((p, i) => (p <= 0 ? [i] : []))));
+  }
+
+  function cambiarN(delta: number) {
+    if (yaSeCobroAlguna) return;
+    setEntreN((n) => {
+      const nuevo = Math.max(2, n + delta);
+      if (plan) dividirDesde(nuevo);
+      return nuevo;
+    });
+  }
+
+  function actualizarParte(i: number, texto: string) {
+    setPlan((p) => {
+      if (!p) return p;
+      const n = Number(texto);
+      const copia = [...p];
+      copia[i] = Number.isFinite(n) && n >= 0 ? n : 0;
+      return copia;
+    });
+  }
+
+  function quitarDivision() {
+    setPlan(null);
+    setPagadas(new Set());
   }
 
   function cobrarParte(i: number, metodo: "efectivo" | "tarjeta") {
@@ -145,28 +167,42 @@ export default function Cobro({
       {falta > 0 && (
         <div className="flex flex-col gap-3 rounded-sm border border-vino/15 bg-white px-5 py-5">
           <p className="text-sm text-tinta-2">¿Se divide entre varias personas?</p>
-          <div className="flex gap-2">
-            <input
-              inputMode="numeric"
-              value={entrePersonas}
-              onChange={(e) => setEntrePersonas(e.target.value)}
-              placeholder="ej. 3"
-              className="w-24 rounded-sm border border-vino/25 px-3 py-2.5 text-sm tabular-nums outline-none focus:border-vino"
-            />
-            <button
-              type="button"
-              onClick={calcularDivision}
-              className="rounded-sm border border-vino/25 px-4 py-2.5 text-sm text-vino"
-            >
-              Dividir
-            </button>
-            {plan && (
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => {
-                  setPlan(null);
-                  setPagadas(new Set());
-                }}
+                disabled={entreN <= 2 || yaSeCobroAlguna}
+                onClick={() => cambiarN(-1)}
+                className="flex size-9 items-center justify-center rounded-full border-2 border-vino/30 text-lg text-vino disabled:opacity-30"
+                aria-label="Una persona menos"
+              >
+                −
+              </button>
+              <span className="w-24 text-center text-sm tabular-nums">
+                {entreN} {entreN === 1 ? "persona" : "personas"}
+              </span>
+              <button
+                type="button"
+                disabled={yaSeCobroAlguna}
+                onClick={() => cambiarN(1)}
+                className="flex size-9 items-center justify-center rounded-full border-2 border-vino/30 text-lg text-vino disabled:opacity-30"
+                aria-label="Una persona más"
+              >
+                +
+              </button>
+            </div>
+            {!plan ? (
+              <button
+                type="button"
+                onClick={() => dividirDesde(entreN)}
+                className="rounded-sm border border-vino/25 px-4 py-2 text-sm text-vino"
+              >
+                Dividir
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={quitarDivision}
                 className="rounded-sm px-2 text-sm text-vino underline"
               >
                 Quitar división
@@ -186,35 +222,46 @@ export default function Cobro({
                     }`}
                   >
                     <span className="text-tinta-2">Persona {i + 1}</span>
-                    <span className="tabular-nums font-medium">{pesos(parte)}</span>
                     {pagada ? (
-                      <span className="text-xs text-[#556B4A]">Pagó ✓</span>
+                      <>
+                        <span className="tabular-nums font-medium">{pesos(parte)}</span>
+                        <span className="text-xs text-[#556B4A]">Pagó ✓</span>
+                      </>
                     ) : (
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          disabled={ocupado}
-                          onClick={() => cobrarParte(i, "efectivo")}
-                          className="rounded-sm border border-vino/25 px-3 py-1.5 text-xs text-vino disabled:opacity-40"
-                        >
-                          Efectivo
-                        </button>
-                        <button
-                          type="button"
-                          disabled={ocupado}
-                          onClick={() => cobrarParte(i, "tarjeta")}
-                          className="rounded-sm bg-vino px-3 py-1.5 text-xs text-crema disabled:opacity-40"
-                        >
-                          Tarjeta
-                        </button>
-                      </div>
+                      <>
+                        <input
+                          inputMode="decimal"
+                          value={parte}
+                          onChange={(e) => actualizarParte(i, e.target.value)}
+                          className="w-24 rounded-sm border border-vino/25 px-2 py-1.5 text-right text-sm tabular-nums outline-none focus:border-vino"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            disabled={ocupado}
+                            onClick={() => cobrarParte(i, "efectivo")}
+                            className="rounded-sm border border-vino/25 px-3 py-1.5 text-xs text-vino disabled:opacity-40"
+                          >
+                            Efectivo
+                          </button>
+                          <button
+                            type="button"
+                            disabled={ocupado}
+                            onClick={() => cobrarParte(i, "tarjeta")}
+                            className="rounded-sm bg-vino px-3 py-1.5 text-xs text-crema disabled:opacity-40"
+                          >
+                            Tarjeta
+                          </button>
+                        </div>
+                      </>
                     )}
                   </div>
                 );
               })}
               <p className="text-xs text-tinta-2">
-                Cada quien paga lo suyo por separado — se van sumando abajo, igual que
-                cualquier otro pago.
+                Cada parte arranca pareja, pero se puede cambiar el monto antes
+                de cobrarla — no siempre le toca lo mismo a cada quien. Cada
+                quien paga lo suyo por separado, se va sumando arriba.
               </p>
             </div>
           )}

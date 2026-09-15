@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { obtenerCuenta } from "./datos-cuenta";
+import { etiquetaBancos } from "./etiqueta-bancos";
 import Reloj from "../../reloj";
 import Comanda from "./comanda";
 
@@ -34,16 +35,16 @@ export default async function Cuenta({ params }: PageProps<"/cuenta/[id]">) {
           </Link>
           <div>
             <p className="text-[11px] tracking-widest uppercase opacity-75">
-              {bancos.length === 1 ? "Banco" : "Bancos"}
+              {etiquetaBancos(bancos).titulo}
             </p>
-            <p className="text-lg font-medium">{bancos.join(" · ")}</p>
+            <p className="text-lg font-medium">{etiquetaBancos(bancos).valor}</p>
           </div>
         </div>
         <div className="text-right">
           <p className="text-[11px] tracking-widest uppercase opacity-75">
             {cabecera.personas}{" "}
             {cabecera.personas === 1 ? "persona" : "personas"} · abrió{" "}
-            {cabecera.mesero}
+            {cabecera.mesero ?? "—"}
           </p>
           <p className="text-lg font-medium">
             <Reloj desde={cabecera.abierto_en} />

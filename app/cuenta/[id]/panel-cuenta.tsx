@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Reloj from "../../reloj";
+import { etiquetaBancos } from "./etiqueta-bancos";
 
 /** El panel lateral con el que se abre una cuenta desde el mapa de la
  * barra — "como un tipo ticket" que se desliza del lado derecho, para
@@ -20,7 +21,7 @@ export default function PanelCuenta({
 }: {
   bancos: number[];
   personas: number;
-  mesero: string;
+  mesero: string | null;
   abiertoEn: string;
   color: string;
   colorTexto: string;
@@ -73,15 +74,15 @@ export default function PanelCuenta({
             </button>
             <div>
               <p className="text-[11px] tracking-widest uppercase opacity-75">
-                {bancos.length === 1 ? "Banco" : "Bancos"}
+                {etiquetaBancos(bancos).titulo}
               </p>
-              <p className="text-lg font-medium">{bancos.join(" · ")}</p>
+              <p className="text-lg font-medium">{etiquetaBancos(bancos).valor}</p>
             </div>
           </div>
           <div className="text-right">
             <p className="text-[11px] tracking-widest uppercase opacity-75">
               {personas} {personas === 1 ? "persona" : "personas"} · abrió{" "}
-              {mesero}
+              {mesero ?? "—"}
             </p>
             <p className="text-lg font-medium">
               <Reloj desde={abiertoEn} />

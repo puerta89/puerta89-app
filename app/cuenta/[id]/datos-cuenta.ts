@@ -12,19 +12,28 @@ export async function obtenerCuenta(id: string) {
   if (!sesion) redirect("/entrar");
 
   const supabase = supabaseServidor();
-  const { data: mapa } = await supabase.rpc("mapa_barra", {
-    p_sucursal: sesion.sucursalId,
-  });
+  // mapa_barra parte DE los bancos, así que una cuenta sin mesa (para
+  // llevar, o que todavía no se sienta a ningún lado) nunca aparecería
+  // ahí — se busca la cuenta por su propio id con ticket_cabecera, y
+  // mapa_barra queda solo para armar la lista de bancos libres/propios.
+  const [{ data: mapa }, { data: cabRows }] = await Promise.all([
+    supabase.rpc("mapa_barra", { p_sucursal: sesion.sucursalId }),
+    supabase.rpc("ticket_cabecera", {
+      p_sucursal: sesion.sucursalId,
+      p_ticket: id,
+    }),
+  ]);
 
-  const suyos = (mapa ?? []).filter(
-    (r: { ticket_id: string | null }) => r.ticket_id === id,
-  );
-  if (suyos.length === 0) notFound();
+  const cab = cabRows?.[0];
+  if (!cab) notFound();
 
-  const bancos = suyos
-    .map((r: { numero: number }) => r.numero)
-    .sort((a: number, b: number) => a - b);
-  const cabecera = suyos[0];
+  const bancos: number[] = cab.bancos ?? [];
+  const cabecera = {
+    personas: cab.personas as number,
+    mesero: cab.mesero as string | null,
+    abierto_en: cab.abierto_en as string,
+    ticket_estado: cab.estado as "abierto" | "por_cobrar",
+  };
 
   type Fila = {
     banco_id: string; numero: number; zona_nombre: string; ticket_id: string | null;

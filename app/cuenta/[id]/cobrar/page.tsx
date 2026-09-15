@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-import { leerSesion } from "@/lib/sesion";
-import { supabaseServidor } from "@/lib/supabase/server";
-import { traerLineas, traerPagos } from "@/lib/datos";
+import { obtenerCobro } from "./datos-cobro";
+import { etiquetaBancos } from "../etiqueta-bancos";
 import Cobro from "./cobro";
 
 export const metadata = { title: "Cobrar · Puerta 89" };
@@ -11,25 +9,7 @@ export default async function Cobrar({
   params,
 }: PageProps<"/cuenta/[id]/cobrar">) {
   const { id } = await params;
-  const sesion = await leerSesion();
-  if (!sesion) redirect("/entrar");
-
-  const supabase = supabaseServidor();
-  const { data: mapa } = await supabase.rpc("mapa_barra", {
-    p_sucursal: sesion.sucursalId,
-  });
-  const suyos = (mapa ?? []).filter(
-    (r: { ticket_id: string | null }) => r.ticket_id === id,
-  );
-  if (suyos.length === 0) notFound();
-
-  const bancos = suyos
-    .map((r: { numero: number }) => r.numero)
-    .sort((a: number, b: number) => a - b);
-
-  const [lineas, pagos] = await Promise.all([traerLineas(id), traerPagos(id)]);
-  const total = lineas.reduce((s, l) => s + l.importe, 0);
-  const personas: number = suyos[0].personas ?? 1;
+  const { sesion, bancos, pagos, total, personas } = await obtenerCobro(id);
 
   return (
     <main className="min-h-dvh bg-crema">
@@ -46,9 +26,9 @@ export default async function Cobrar({
           </Link>
           <div>
             <p className="text-[11px] tracking-widest uppercase opacity-75">
-              Cobrando {bancos.length === 1 ? "el banco" : "los bancos"}
+              Cobrando · {etiquetaBancos(bancos).titulo}
             </p>
-            <p className="text-lg font-medium">{bancos.join(" · ")}</p>
+            <p className="text-lg font-medium">{etiquetaBancos(bancos).valor}</p>
           </div>
         </div>
       </header>
