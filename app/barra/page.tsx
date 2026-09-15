@@ -6,6 +6,7 @@ import { traerMapa, traerSucursalesDisponibles } from "@/lib/datos";
 import { salir } from "../entrar/acciones";
 import Mapa from "./mapa";
 import SelectorSucursal from "./selector-sucursal";
+import EmpezarOrden from "./empezar-orden";
 
 export const metadata = { title: "Barra · Puerta 89" };
 
@@ -15,7 +16,11 @@ export default async function Barra() {
 
   // El mesero no ve el mapa: entra directo a tomar el pedido (categorías
   // primero, mesa después). Si ya traía una orden sin guardar, la retoma
-  // en vez de dejarla botada y empezar otra.
+  // en vez de dejarla botada y empezar otra. Crear la cuenta nueva se
+  // deja al cliente (EmpezarOrden) — NUNCA a un redirect de servidor: un
+  // redirect se sigue aunque sea solo un prefetch de Next.js, y eso
+  // creaba una cuenta vacía cada vez que un <Link> hacia aquí entraba en
+  // pantalla, sin que nadie tocara nada.
   if (sesion.rol === "mesero") {
     if (sesion.ordenActualId) {
       const supabase = supabaseServidor();
@@ -28,7 +33,7 @@ export default async function Barra() {
         redirect(`/cuenta/${sesion.ordenActualId}`);
       }
     }
-    redirect("/barra/nueva-orden");
+    return <EmpezarOrden />;
   }
 
   const [zonas, sucursales] = await Promise.all([

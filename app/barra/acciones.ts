@@ -3,9 +3,36 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseServidor } from "@/lib/supabase/server";
-import { leerSesion, abrirSesion } from "@/lib/sesion";
+import { leerSesion, abrirSesion, actualizarOrdenActual } from "@/lib/sesion";
 
 export type ResultadoAbrir = { error: string } | { ticketId: string };
+
+/** Crea la cuenta con la que un mesero empieza a tomar un pedido, sin
+ * mesa todavía, y la recuerda como "la orden en curso" (para poder
+ * retomarla si sale de /barra y regresa).
+ *
+ * A propósito es un Server Action y NO una ruta a la que se pueda
+ * navegar (GET) — un Server Action solo corre cuando algo del cliente lo
+ * llama de verdad, nunca por un prefetch de Next.js. La primera versión
+ * sí era una ruta (/barra/nueva-orden), y el prefetch automático de los
+ * <Link> hacia /barra la disparaba solo, creando cuentas vacías de la
+ * nada cada vez que ese link entraba en pantalla — así se explicaban los
+ * "tickets en cero" que Mercedes no se explicaba. */
+export async function crearOrdenSinMesa(): Promise<ResultadoAbrir> {
+  const sesion = await leerSesion();
+  if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
+
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("abrir_cuenta", {
+    p_empleado: sesion.empleadoId,
+    p_bancos: [],
+    p_personas: 1,
+  });
+  if (error) return { error: error.message };
+
+  await actualizarOrdenActual(data as string);
+  return { ticketId: data as string };
+}
 
 export async function abrirCuenta(
   empleadoId: string,
