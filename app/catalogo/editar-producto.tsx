@@ -84,8 +84,11 @@ export default function EditarProducto({
   const [ingredientes, setIngredientes] = useState<FilaIngrediente[]>([]);
 
   useEffect(() => {
+    // Ya no hace falta poner cargandoIngredientes en true aquí: como
+    // ver-todo.tsx ahora monta este componente con key={producto_id},
+    // cambiar de producto lo vuelve a montar desde cero y ese estado ya
+    // arranca en true por su valor inicial (arriba).
     let vivo = true;
-    setCargandoIngredientes(true);
     obtenerDetalleProducto(item.producto_id).then((r) => {
       if (!vivo) return;
       if ("error" in r) {

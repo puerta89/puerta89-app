@@ -149,6 +149,11 @@ export default function VerTodo({
 
       {abierto && (
         <EditarProducto
+          // Fuerza a React a montarlo de nuevo (en vez de solo actualizar
+          // el mismo) cuando se pasa de editar un producto a otro sin
+          // cerrar el panel — así arrancan limpios los ingredientes,
+          // nombre, precios, etc. del producto nuevo automáticamente.
+          key={abierto.producto_id}
           item={abierto}
           categorias={categorias}
           insumos={insumos}

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { redirect } from "next/navigation";
 import ExcelJS from "exceljs";
 import { leerSesion } from "@/lib/sesion";
 import {
@@ -37,13 +38,14 @@ function hojaDesglose(wb: ExcelJS.Workbook, titulo: string, datos: Desglose[]) {
 }
 
 export async function GET(request: NextRequest) {
+  // El botón "Descargar Excel" es un <a href> normal (para que el
+  // navegador maneje la descarga), no un fetch de la app — así que si
+  // devolviéramos JSON con 401/403 aquí, eso es exactamente lo que se
+  // vería en pantalla: el navegador lo pinta tal cual, en blanco. Mejor
+  // mandar a una pantalla de verdad.
   const sesion = await leerSesion();
-  if (!sesion) {
-    return NextResponse.json({ error: "Tu sesión venció. Vuelve a entrar." }, { status: 401 });
-  }
-  if (sesion.rol === "mesero") {
-    return NextResponse.json({ error: "Esto solo lo puede ver el dueño o el gerente." }, { status: 403 });
-  }
+  if (!sesion) redirect("/entrar");
+  if (sesion.rol === "mesero") redirect("/barra");
 
   const { searchParams } = new URL(request.url);
   const hoy = hoyEnMexico();
