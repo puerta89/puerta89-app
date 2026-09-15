@@ -406,17 +406,15 @@ export default function Comanda({
           </div>
         )}
 
-        {rol !== "mesero" && (
-          <div className="px-4 pb-4">
-            <button
-              type="button"
-              onClick={() => setCancelandoMesa(true)}
-              className="w-full rounded-sm border border-vino/30 px-4 py-3 text-sm text-vino"
-            >
-              {lineas.length === 0 ? "Cancelar esta mesa (se abrió por error)" : "Cancelar toda la cuenta"}
-            </button>
-          </div>
-        )}
+        <div className="px-4 pb-4">
+          <button
+            type="button"
+            onClick={() => setCancelandoMesa(true)}
+            className="w-full rounded-sm border border-vino/30 px-4 py-3 text-sm text-vino"
+          >
+            {lineas.length === 0 ? "Cancelar esta mesa (se abrió por error)" : "Cancelar toda la cuenta"}
+          </button>
+        </div>
       </section>
 
       {error && (
@@ -694,7 +692,10 @@ export default function Comanda({
         <Hoja
           titulo={lineas.length === 0 ? "Cancelar esta mesa" : "Cancelar toda la cuenta"}
           sub="El banco queda libre"
-          cerrar={() => setCancelandoMesa(false)}
+          cerrar={() => {
+            setCancelandoMesa(false);
+            setCodigoJefe("");
+          }}
         >
           <div className="flex flex-col gap-4 p-4">
             <p className="text-sm text-tinta-2">
@@ -703,16 +704,37 @@ export default function Comanda({
                 : "¿Estás seguro? Se cancela todo lo pedido (regresa al inventario) y se borra cualquier pago ya registrado. No cuenta como venta."}
             </p>
 
+            {rol === "mesero" && (
+              <label className="flex flex-col gap-1.5 text-sm">
+                Código del dueño
+                <input
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={codigoJefe}
+                  onChange={(e) =>
+                    setCodigoJefe(e.target.value.replace(/\D/g, "").slice(0, 4))
+                  }
+                  placeholder="····"
+                  className="rounded-sm border border-vino/25 px-3 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:border-vino"
+                />
+              </label>
+            )}
+
             <button
               type="button"
-              disabled={ocupado}
+              disabled={ocupado || (rol === "mesero" && codigoJefe.length !== 4)}
               onClick={() =>
                 empezar(async () => {
                   setError(null);
-                  const r = await cancelarCuenta(ticketId);
+                  const r = await cancelarCuenta(
+                    ticketId,
+                    undefined,
+                    rol === "mesero" ? codigoJefe : null,
+                  );
                   if (r?.error) setError(r.error);
                   else {
                     setCancelandoMesa(false);
+                    setCodigoJefe("");
                     router.push("/barra");
                   }
                 })

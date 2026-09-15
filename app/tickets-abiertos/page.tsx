@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { leerSesion } from "@/lib/sesion";
 import { traerTicketsAbiertos } from "@/lib/datos";
 import Reloj from "../reloj";
+import NuevaOrdenBoton from "./nueva-orden-boton";
 
 export const metadata = { title: "Tickets abiertos · Puerta 89" };
 
@@ -33,6 +34,8 @@ export default async function TicketsAbiertos() {
       </header>
 
       <div className="mx-auto flex max-w-lg flex-col gap-3 px-4 py-5">
+        <NuevaOrdenBoton />
+
         {tickets.length === 0 ? (
           <p className="rounded-sm border border-vino/15 bg-white px-5 py-10 text-center text-sm text-tinta-2">
             No hay ninguna cuenta abierta ahorita.

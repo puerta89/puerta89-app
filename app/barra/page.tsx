@@ -6,7 +6,6 @@ import { traerMapa, traerSucursalesDisponibles } from "@/lib/datos";
 import { salir } from "../entrar/acciones";
 import Mapa from "./mapa";
 import SelectorSucursal from "./selector-sucursal";
-import EmpezarOrden from "./empezar-orden";
 
 export const metadata = { title: "Barra · Puerta 89" };
 
@@ -14,13 +13,12 @@ export default async function Barra() {
   const sesion = await leerSesion();
   if (!sesion) redirect("/entrar");
 
-  // El mesero no ve el mapa: entra directo a tomar el pedido (categorías
-  // primero, mesa después). Si ya traía una orden sin guardar, la retoma
-  // en vez de dejarla botada y empezar otra. Crear la cuenta nueva se
-  // deja al cliente (EmpezarOrden) — NUNCA a un redirect de servidor: un
-  // redirect se sigue aunque sea solo un prefetch de Next.js, y eso
-  // creaba una cuenta vacía cada vez que un <Link> hacia aquí entraba en
-  // pantalla, sin que nadie tocara nada.
+  // El mesero no ve el mapa. Si ya traía una orden sin guardar la
+  // retoma; si no, esta pantalla es nada más "Tickets abiertos" y
+  // "Salir" — tomar una orden nueva se hace desde ahí (un botón que sí
+  // hay que picar), no algo que pase solo al aterrizar aquí: eso fue
+  // justo lo que causó el bug de cuentas vacías creándose con el
+  // prefetch de Next.js.
   if (sesion.rol === "mesero") {
     if (sesion.ordenActualId) {
       const supabase = supabaseServidor();
@@ -33,7 +31,39 @@ export default async function Barra() {
         redirect(`/cuenta/${sesion.ordenActualId}`);
       }
     }
-    return <EmpezarOrden />;
+
+    return (
+      <main className="flex min-h-dvh flex-col bg-crema">
+        <header
+          className="flex items-center justify-between px-5 py-3"
+          style={{ backgroundColor: sesion.sucursalColor, color: sesion.sucursalColorTexto }}
+        >
+          <div>
+            <p className="text-[11px] tracking-widest uppercase opacity-75">
+              {sesion.rol}
+            </p>
+            <p className="text-lg font-medium">{sesion.nombre}</p>
+          </div>
+          <form action={salir}>
+            <button
+              type="submit"
+              className="rounded-sm border border-current/40 px-4 py-2 text-sm"
+            >
+              Salir
+            </button>
+          </form>
+        </header>
+
+        <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4">
+          <Link
+            href="/tickets-abiertos"
+            className="rounded-sm bg-vino px-5 py-6 text-center text-lg font-medium text-crema"
+          >
+            Tickets abiertos
+          </Link>
+        </div>
+      </main>
+    );
   }
 
   const [zonas, sucursales] = await Promise.all([

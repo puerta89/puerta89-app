@@ -230,17 +230,27 @@ export async function partirCuenta(
 /** Cancela la cuenta completa — de una mesa vacía que se abrió por error,
  * o de una cuenta con consumo/pagos reales (revierte el inventario de
  * cada renglón y borra los pagos registrados, como si nunca hubiera
- * pasado). No cuenta como venta, y deja el banco libre. Solo dueño o
- * gerente; no pide motivo (queda uno genérico si no se da ninguno). */
-export async function cancelarCuenta(ticketId: string, motivo?: string): Promise<Falla> {
+ * pasado). No cuenta como venta, y deja el banco libre. Dueño o gerente
+ * se autorizan solos; un mesero necesita el código de uno de ellos
+ * (mismo patrón que cancelarLinea) — no pide motivo (queda uno genérico
+ * si no se da ninguno). */
+export async function cancelarCuenta(
+  ticketId: string,
+  motivo?: string,
+  codigo?: string | null,
+): Promise<Falla> {
   const sesion = await leerSesion();
   if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
+  if (sesion.rol === "mesero" && !/^\d{4}$/.test(codigo ?? "")) {
+    return { error: "El código son 4 números." };
+  }
 
   const supabase = supabaseServidor();
   const { error } = await supabase.rpc("cancelar_cuenta", {
     p_empleado: sesion.empleadoId,
     p_ticket: ticketId,
     p_motivo: motivo?.trim() || null,
+    p_codigo: sesion.rol === "mesero" ? codigo : null,
   });
   if (error) return { error: error.message };
   await soltarSiEraLaActual(sesion, ticketId);
