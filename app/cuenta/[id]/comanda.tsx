@@ -541,7 +541,13 @@ export default function Comanda({
                   // Sin mesa hasta ahora: al guardarla, se limpia la
                   // pantalla y vuelven las categorías para la siguiente
                   // orden — no se queda viendo esta cuenta ya sentada.
-                  modoSimple ? () => router.push("/barra") : undefined,
+                  // Navegación dura (no router.push): esto se puede
+                  // estar viendo dentro del panel lateral de app/@modal,
+                  // y un push ahí se queda atrapado en ese mismo árbol.
+                  modoSimple
+                    ? // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+                      () => (window.location.href = "/barra")
+                    : undefined,
                 )
               }
               className="rounded-sm bg-vino px-4 py-3.5 font-medium text-crema disabled:opacity-40"
@@ -735,7 +741,10 @@ export default function Comanda({
                   else {
                     setCancelandoMesa(false);
                     setCodigoJefe("");
-                    router.push("/barra");
+                    // Navegación dura: ver la nota junto a "Guardar" más
+                    // arriba (el panel lateral atrapa los router.push).
+                    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+                    window.location.href = "/barra";
                   }
                 })
               }

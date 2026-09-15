@@ -103,7 +103,11 @@ export default function Cobro({
       router.refresh();
       return;
     }
-    router.push("/barra");
+    // Navegación dura, no router.push: si esto se abrió como el panel
+    // lateral (app/@modal), un push a /barra puede quedar atrapado en
+    // ese mismo árbol interceptado. Con location.href se sale limpio.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.href = "/barra";
   }
 
   function cobrarParte(i: number, metodo: "efectivo" | "tarjeta") {
@@ -385,7 +389,8 @@ export default function Cobro({
                   setCerrando(false);
                   return;
                 }
-                router.push("/barra");
+                // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+                window.location.href = "/barra";
               })
             }
             className="rounded-sm bg-vino px-4 py-4 text-lg font-medium text-crema disabled:opacity-50"
