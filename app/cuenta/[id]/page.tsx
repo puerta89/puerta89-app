@@ -27,9 +27,9 @@ export default async function Cuenta({ params }: PageProps<"/cuenta/[id]">) {
         className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
         style={{ backgroundColor: sesion.sucursalColor, color: sesion.sucursalColorTexto }}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           {sesion.rol === "mesero" ? (
-            <>
+            <div className="flex items-center gap-2">
               <Link
                 href="/tickets-abiertos"
                 className="rounded-sm border border-current/40 px-3 py-2 text-sm"
@@ -44,7 +44,7 @@ export default async function Cuenta({ params }: PageProps<"/cuenta/[id]">) {
                   Salir
                 </button>
               </form>
-            </>
+            </div>
           ) : (
             <Link
               href="/barra"
@@ -53,7 +53,7 @@ export default async function Cuenta({ params }: PageProps<"/cuenta/[id]">) {
               ← Mapa
             </Link>
           )}
-          <div className="ml-2">
+          <div>
             <p className="text-[11px] tracking-widest uppercase opacity-75">
               {etiquetaBancos(bancos).titulo}
             </p>

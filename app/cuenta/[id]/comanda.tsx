@@ -353,64 +353,64 @@ export default function Comanda({
           <span className="tabular-nums">{pesos(total)}</span>
         </div>
 
-        {(!modoSimple || lineas.length > 0) && (
-          <div className="flex gap-2 px-4 pt-3">
-            <button
-              type="button"
-              onClick={() => {
-                setDestino(bancosPropios);
-                setMoviendo(true);
-              }}
-              className={
-                modoSimple
-                  ? "flex-1 rounded-sm bg-vino px-3 py-2.5 text-xs font-medium text-crema"
-                  : "flex-1 rounded-sm border border-vino/25 px-3 py-2.5 text-xs text-vino"
-              }
-            >
-              {modoSimple ? "Guardar" : "Se cambiaron de lugar"}
-            </button>
-            {lineas.length > 1 && !modoSimple && (
+        <div className="flex flex-col gap-2.5 px-4 pt-3 pb-4">
+          {(!modoSimple || lineas.length > 0) && (
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => {
-                  setAPartir([]);
-                  setPartiendo(true);
+                  setDestino(bancosPropios);
+                  setMoviendo(true);
                 }}
-                className="flex-1 rounded-sm border border-vino/25 px-3 py-2.5 text-xs text-vino"
+                className={
+                  modoSimple
+                    ? "flex-1 rounded-sm bg-vino px-3 py-2.5 text-xs font-medium text-crema"
+                    : "flex-1 rounded-sm border border-vino/25 px-3 py-2.5 text-xs text-vino"
+                }
               >
-                Pagan por separado
+                {modoSimple ? "Guardar" : "Se cambiaron de lugar"}
               </button>
-            )}
-          </div>
-        )}
+              {lineas.length > 1 && !modoSimple && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAPartir([]);
+                    setPartiendo(true);
+                  }}
+                  className="flex-1 rounded-sm border border-vino/25 px-3 py-2.5 text-xs text-vino"
+                >
+                  Pagan por separado
+                </button>
+              )}
+            </div>
+          )}
 
-        {lineas.length > 0 && (
-          <div className="flex gap-2 px-4 pb-4">
-            {estado === "abierto" && !modoSimple && (
+          {lineas.length > 0 && (
+            <div className="flex gap-2">
+              {estado === "abierto" && !modoSimple && (
+                <button
+                  type="button"
+                  disabled={ocupado}
+                  onClick={() => correr(() => pedirCuenta(ticketId))}
+                  className="flex-1 rounded-sm border border-vino/30 px-4 py-3 text-sm text-vino disabled:opacity-50"
+                >
+                  Pidieron la cuenta
+                </button>
+              )}
               <button
                 type="button"
-                disabled={ocupado}
-                onClick={() => correr(() => pedirCuenta(ticketId))}
-                className="flex-1 rounded-sm border border-vino/30 px-4 py-3 text-sm text-vino disabled:opacity-50"
+                onClick={() => router.push(`/cuenta/${ticketId}/cobrar`)}
+                className="flex-1 rounded-sm bg-vino px-4 py-3 font-medium text-crema"
               >
-                Pidieron la cuenta
+                Cobrar
               </button>
-            )}
-            <button
-              type="button"
-              onClick={() => router.push(`/cuenta/${ticketId}/cobrar`)}
-              className="flex-1 rounded-sm bg-vino px-4 py-3 font-medium text-crema"
-            >
-              Cobrar
-            </button>
-          </div>
-        )}
+            </div>
+          )}
 
-        <div className="px-4 pb-4">
           <button
             type="button"
             onClick={() => setCancelandoMesa(true)}
-            className="w-full rounded-sm border border-vino/30 px-4 py-3 text-sm text-vino"
+            className="mt-1 w-full rounded-sm border border-vino/30 px-4 py-3 text-sm text-vino"
           >
             {lineas.length === 0 ? "Cancelar esta mesa (se abrió por error)" : "Cancelar toda la cuenta"}
           </button>

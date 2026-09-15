@@ -7,6 +7,7 @@ import { salir } from "../entrar/acciones";
 import Mapa from "./mapa";
 import SelectorSucursal from "./selector-sucursal";
 import EmpezarOrden from "./empezar-orden";
+import RetomarOrden from "./retomar-orden";
 
 export const metadata = { title: "Barra · Puerta 89" };
 
@@ -16,11 +17,13 @@ export default async function Barra() {
 
   // El mesero no ve el mapa: cae directo a la comanda (categorías
   // listas para empezar, como Loyverse). Si ya traía una orden sin
-  // guardar la retoma; si no, se le crea una sola — pero eso pasa en
-  // EmpezarOrden (un efecto de cliente, con navegación dura al
-  // terminar), nunca aquí ni en una ruta GET: un redirect de servidor
-  // se sigue aunque sea solo un prefetch de Next.js, y así fue como la
-  // primera versión creaba cuentas vacías solas.
+  // guardar la retoma; si no, se le crea una sola. Ninguno de los dos
+  // casos usa redirect() de servidor — siempre una navegación DURA desde
+  // un componente de cliente (EmpezarOrden / RetomarOrden), porque
+  // /barra se puede alcanzar con una navegación de cliente (el "← Atrás"
+  // de /tickets-abiertos, o un prefetch de Next.js), y esas quedan
+  // atrapadas por la ruta interceptada de app/@modal en vez de llegar a
+  // la página completa.
   if (sesion.rol === "mesero") {
     if (sesion.ordenActualId) {
       const supabase = supabaseServidor();
@@ -30,7 +33,7 @@ export default async function Barra() {
       });
       const cab = data?.[0];
       if (cab && (cab.bancos ?? []).length === 0) {
-        redirect(`/cuenta/${sesion.ordenActualId}`);
+        return <RetomarOrden ticketId={sesion.ordenActualId} />;
       }
     }
     return <EmpezarOrden />;
