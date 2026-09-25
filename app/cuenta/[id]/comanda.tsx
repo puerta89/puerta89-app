@@ -46,6 +46,7 @@ export default function Comanda({
   bancosLibres,
   bancosPropios,
   rol,
+  edicionLibre,
 }: {
   ticketId: string;
   catalogo: ItemCatalogo[];
@@ -56,6 +57,8 @@ export default function Comanda({
   bancosLibres: { id: string; numero: number; zona: string }[];
   bancosPropios: string[];
   rol: "dueno" | "gerente" | "mesero";
+  /** Interruptor del dueño: meseros editan sin código ni motivo. */
+  edicionLibre: boolean;
 }) {
   const router = useRouter();
   // Sin mesa todavía: se tomó la orden primero (Mercedes). Mientras dure,
@@ -318,7 +321,7 @@ export default function Comanda({
                     </span>
                     <span className="tabular-nums">{pesos(l.importe)}</span>
                   </button>
-                  {sePuedeDeshacer(l.creado_en) && (
+                  {(edicionLibre || sePuedeDeshacer(l.creado_en)) && (
                     <button
                       type="button"
                       title="Se equivocaron, quita una"
@@ -638,7 +641,7 @@ export default function Comanda({
         >
           <div className="flex flex-col gap-4 p-4">
             <label className="flex flex-col gap-1.5 text-sm">
-              ¿Por qué?
+              ¿Por qué? {edicionLibre && <span className="text-tinta-2">(opcional)</span>}
               <input
                 value={motivo}
                 onChange={(e) => setMotivo(e.target.value)}
@@ -647,7 +650,7 @@ export default function Comanda({
               />
             </label>
 
-            {rol === "mesero" && (
+            {rol === "mesero" && !edicionLibre && (
               <label className="flex flex-col gap-1.5 text-sm">
                 Código del dueño
                 <input
@@ -672,15 +675,15 @@ export default function Comanda({
               type="button"
               disabled={
                 ocupado ||
-                !motivo.trim() ||
-                (rol === "mesero" && codigoJefe.length !== 4)
+                (!edicionLibre && !motivo.trim()) ||
+                (rol === "mesero" && !edicionLibre && codigoJefe.length !== 4)
               }
               onClick={() =>
                 correr(() =>
                   cancelarLinea(
                     ticketId,
                     quitando.linea_id,
-                    rol === "mesero" ? codigoJefe : null,
+                    rol === "mesero" && !edicionLibre ? codigoJefe : null,
                     motivo,
                   ),
                 )

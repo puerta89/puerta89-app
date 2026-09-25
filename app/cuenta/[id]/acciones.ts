@@ -73,16 +73,22 @@ export async function cancelarLinea(
 ): Promise<Falla> {
   const sesion = await leerSesion();
   if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
-  if (!motivo.trim()) return { error: "Falta decir por qué se cancela." };
-  // El dueño o gerente se autoriza a sí mismo con su propia sesión: no
-  // necesita teclear su propio código. El mesero sí necesita el código
-  // de alguien con autoridad.
-  const necesitaCodigo = sesion.rol === "mesero";
+  const supabase = supabaseServidor();
+  // Con la edición libre encendida (interruptor del dueño, por defecto)
+  // el mesero quita sin código ni motivo, como en Loyverse. Apagada: se
+  // pide motivo y el código de alguien con autoridad, como antes.
+  const { data: suc } = await supabase
+    .from("sucursales")
+    .select("meseros_editan_libre")
+    .eq("id", sesion.sucursalId)
+    .maybeSingle();
+  const libre = suc?.meseros_editan_libre ?? true;
+  const necesitaCodigo = sesion.rol === "mesero" && !libre;
+  if (!libre && !motivo.trim()) return { error: "Falta decir por qué se cancela." };
   if (necesitaCodigo && !/^\d{4}$/.test(codigo ?? "")) {
     return { error: "El código son 4 números." };
   }
 
-  const supabase = supabaseServidor();
   const { error } = await supabase.rpc("cancelar_linea", {
     p_solicitante: sesion.empleadoId,
     p_linea: lineaId,

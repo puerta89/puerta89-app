@@ -61,11 +61,19 @@ export async function obtenerCuenta(id: string) {
     ).values(),
   ].sort((a, b) => a.numero - b.numero);
 
-  const [catalogo, botellas, lineas] = await Promise.all([
+  const [catalogo, botellas, lineas, { data: suc }] = await Promise.all([
     traerCatalogo(sesion.sucursalId),
     traerBotellas(sesion.sucursalId),
     traerLineas(id),
+    supabase
+      .from("sucursales")
+      .select("meseros_editan_libre")
+      .eq("id", sesion.sucursalId)
+      .maybeSingle(),
   ]);
+  // Interruptor del dueño: si está encendido (por defecto) los meseros
+  // editan la cuenta libremente, como en Loyverse — sin código ni motivo.
+  const edicionLibre = suc?.meseros_editan_libre ?? true;
 
   const total = lineas.reduce((s, l) => s + l.importe, 0);
 
@@ -79,5 +87,6 @@ export async function obtenerCuenta(id: string) {
     total,
     bancosLibres,
     bancosPropios,
+    edicionLibre,
   };
 }

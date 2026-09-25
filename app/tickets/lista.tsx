@@ -1,4 +1,5 @@
 import type { TicketPeriodo } from "@/lib/datos";
+import AnularVenta from "./anular-venta";
 
 const pesos = (n: number) =>
   n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
@@ -45,6 +46,7 @@ export default function ListaRecibos({ recibos }: { recibos: TicketPeriodo[] }) 
               {r.tarjeta > 0 && `tarjeta ${pesos(r.tarjeta)}`}
               {r.descuento > 0 && ` · descuento ${pesos(r.descuento)}`}
             </p>
+            <AnularVenta folio={Number(r.folio)} />
           </div>
         </details>
       ))}
