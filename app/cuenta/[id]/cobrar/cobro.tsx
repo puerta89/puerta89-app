@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Pago } from "@/lib/datos";
 import {
-  agregarPago,
+  cobrarYCerrar,
   quitarPago,
   cerrarCuenta,
 } from "../acciones";
@@ -43,6 +43,18 @@ export default function Cobro({
   const [error, setError] = useState<string | null>(null);
   const [ocupado, empezar] = useTransition();
   const [cerrando, setCerrando] = useState(false);
+  // Si algo tarda más de la cuenta (internet flojo), se avisa en vez de
+  // dejar la pantalla congelada sin explicación.
+  const [lento, setLento] = useState(false);
+
+  useEffect(() => {
+    if (!ocupado && !cerrando) return;
+    const t = setTimeout(() => setLento(true), 10000);
+    return () => {
+      clearTimeout(t);
+      setLento(false);
+    };
+  }, [ocupado, cerrando]);
 
   // ── Dividir la cuenta entre varias personas (estilo Loyverse: elige
   // entre cuántos, arranca parejo, y cada parte se puede ajustar a
@@ -85,29 +97,40 @@ export default function Cobro({
     setPagadas(new Set());
   }
 
-  /** Se llama justo después de un pago que sí se guardó. Si con ese pago
-   * ya queda cubierto el total, cierra la cuenta de una vez — nadie
-   * tiene que picarle "Cerrar" aparte. Mercedes: "en automático se tiene
-   * que cerrar la pestaña, porque luego se traba o se pierde tiempo". */
-  async function seguirTrasPago(montoPagado: number) {
-    const quedaPor = Math.round((falta - montoPagado) * 100) / 100;
-    if (quedaPor > 0) {
+  /** Guarda un pago y, si con él queda cubierto el total, la cuenta se
+   * cierra en la MISMA llamada (cobrar_y_cerrar) — nadie tiene que picarle
+   * "Cerrar" aparte, y no puede quedar a medias. Mercedes: "en automático
+   * se tiene que cerrar la pestaña, porque luego se traba o se pierde
+   * tiempo". Devuelve true si el pago se guardó.
+   *
+   * Nunca deja la pantalla bloqueada: pase lo que pase (error, se cortó
+   * el internet), los botones vuelven a quedar disponibles. */
+  async function guardarPago(metodo: "efectivo" | "tarjeta", n: number) {
+    setError(null);
+    try {
+      const r = await cobrarYCerrar(ticketId, metodo, n, Number(propina) || 0);
+      if ("error" in r) {
+        setError(r.error);
+        return false;
+      }
+      if (r.cerrada) {
+        setCerrando(true);
+        // Navegación dura, no router.push: si esto se abrió como ventana
+        // (app/@modal), un push a /barra puede quedar atrapado en ese
+        // mismo árbol interceptado. Con location.href se sale limpio.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        window.location.href = "/barra";
+        return true;
+      }
       router.refresh();
-      return;
-    }
-    setCerrando(true);
-    const r = await cerrarCuenta(ticketId, Number(propina) || 0);
-    if (r?.error) {
-      setError(r.error);
-      setCerrando(false);
+      return true;
+    } catch {
+      setError(
+        "Se cortó la conexión. Revisa arriba si el pago ya aparece antes de volver a cobrar — si ya está, no lo repitas.",
+      );
       router.refresh();
-      return;
+      return false;
     }
-    // Navegación dura, no router.push: si esto se abrió como el panel
-    // lateral (app/@modal), un push a /barra puede quedar atrapado en
-    // ese mismo árbol interceptado. Con location.href se sale limpio.
-    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-    window.location.href = "/barra";
   }
 
   function cobrarParte(i: number, metodo: "efectivo" | "tarjeta") {
@@ -115,13 +138,9 @@ export default function Cobro({
     setError(null);
     const parteMonto = plan[i];
     empezar(async () => {
-      const r = await agregarPago(ticketId, metodo, parteMonto, null);
-      if (r?.error) {
-        setError(r.error);
-        return;
+      if (await guardarPago(metodo, parteMonto)) {
+        setPagadas((p) => new Set(p).add(i));
       }
-      setPagadas((p) => new Set(p).add(i));
-      await seguirTrasPago(parteMonto);
     });
   }
 
@@ -141,15 +160,8 @@ export default function Cobro({
       setError("Ese monto no se entiende.");
       return;
     }
-    setError(null);
     empezar(async () => {
-      const r = await agregarPago(ticketId, metodo, n, null);
-      if (r?.error) {
-        setError(r.error);
-        return;
-      }
-      setMonto("");
-      await seguirTrasPago(n);
+      if (await guardarPago(metodo, n)) setMonto("");
     });
   }
 
@@ -383,14 +395,19 @@ export default function Cobro({
               empezar(async () => {
                 setError(null);
                 setCerrando(true);
-                const r = await cerrarCuenta(ticketId, Number(propina) || 0);
-                if (r?.error) {
-                  setError(r.error);
+                try {
+                  const r = await cerrarCuenta(ticketId, Number(propina) || 0);
+                  if (r?.error) {
+                    setError(r.error);
+                    setCerrando(false);
+                    return;
+                  }
+                  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+                  window.location.href = "/barra";
+                } catch {
+                  setError("Se cortó la conexión. Intenta de nuevo.");
                   setCerrando(false);
-                  return;
                 }
-                // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-                window.location.href = "/barra";
               })
             }
             className="rounded-sm bg-vino px-4 py-4 text-lg font-medium text-crema disabled:opacity-50"
@@ -402,6 +419,14 @@ export default function Cobro({
             cambiar.
           </p>
         </div>
+      )}
+
+      {lento && (
+        <p className="rounded-sm bg-rosa-claro/30 px-4 py-3 text-sm text-vino">
+          Está tardando más de lo normal — puede ser el internet. Espera unos
+          segundos; si no avanza, revisa la conexión y cierra esta ventana
+          para ver si el pago ya quedó.
+        </p>
       )}
 
       {error && (

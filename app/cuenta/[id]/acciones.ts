@@ -152,6 +152,50 @@ export async function agregarPago(
   return null;
 }
 
+/** Cobra y, si con esto queda cubierto el total, cierra la cuenta — todo en
+ * UNA sola llamada a la base (ver cobrar_y_cerrar). Antes eran dos
+ * (agregarPago y luego cerrarCuenta) y si la segunda se cortaba la cuenta
+ * se quedaba abierta con la pantalla bloqueada.
+ *
+ * Si la cuenta ya estaba cerrada (por ejemplo, un doble toque), se trata
+ * como éxito: lo que se quería ya pasó.
+ *
+ * Cuando se cierra, NO se hace revalidatePath: eso volvería a pedir la
+ * pantalla de cobrar justo cuando la cuenta ya no existe como abierta. */
+export async function cobrarYCerrar(
+  ticketId: string,
+  metodo: "efectivo" | "tarjeta",
+  monto: number,
+  propina: number,
+): Promise<{ error: string } | { cerrada: boolean }> {
+  const sesion = await leerSesion();
+  if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
+
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("cobrar_y_cerrar", {
+    p_empleado: sesion.empleadoId,
+    p_ticket: ticketId,
+    p_metodo: metodo,
+    p_monto: monto,
+    p_propina: propina,
+  });
+
+  if (error) {
+    if (error.message.includes("ya está cerrada")) {
+      await soltarSiEraLaActual(sesion, ticketId);
+      return { cerrada: true };
+    }
+    return { error: error.message };
+  }
+
+  if (data === true) {
+    await soltarSiEraLaActual(sesion, ticketId);
+    return { cerrada: true };
+  }
+  revalidatePath(`/cuenta/${ticketId}/cobrar`);
+  return { cerrada: false };
+}
+
 export async function quitarPago(ticketId: string, pagoId: string): Promise<Falla> {
   const sesion = await leerSesion();
   if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
