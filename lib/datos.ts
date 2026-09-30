@@ -399,6 +399,66 @@ export async function traerInventario(sucursalId: string) {
   })) as ItemInventario[];
 }
 
+export type LineaConteo = {
+  producto_id: string | null;
+  presentacion_id: string | null;
+  nombre: string;
+  unidad: string;
+  esperado: number;
+  contado: number | null;
+};
+
+/** El conteo físico en progreso ahora mismo (documento que se guarda
+ * solo, renglón por renglón) — o null si no hay ninguno empezado. */
+export async function traerConteoActivo(sucursalId: string) {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("conteo_activo", {
+    p_sucursal: sucursalId,
+  });
+  if (error) throw new Error(`No se pudo leer el conteo: ${error.message}`);
+  if (!data || data.length === 0) return null;
+  const [primero] = data;
+  return {
+    conteoId: primero.conteo_id as string,
+    creadoEn: primero.creado_en as string,
+    creadoPor: primero.creado_por as string,
+    lineas: data.map((r: Record<string, unknown>) => ({
+      producto_id: r.producto_id,
+      presentacion_id: r.presentacion_id,
+      nombre: r.nombre,
+      unidad: r.unidad,
+      esperado: Number(r.esperado),
+      contado: r.contado === null ? null : Number(r.contado),
+    })) as LineaConteo[],
+  };
+}
+
+export type MovimientoItem = {
+  fecha: string;
+  tipo: string;
+  cantidad: number;
+  motivo: string | null;
+  empleado: string | null;
+};
+
+export async function traerHistorialItem(
+  sucursalId: string,
+  productoId: string | null,
+  presentacionId: string | null,
+) {
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("historial_item", {
+    p_sucursal: sucursalId,
+    p_producto: productoId,
+    p_presentacion: presentacionId,
+  });
+  if (error) throw new Error(`No se pudo leer el historial: ${error.message}`);
+  return (data ?? []).map((r: Record<string, unknown>) => ({
+    ...r,
+    cantidad: Number(r.cantidad),
+  })) as MovimientoItem[];
+}
+
 export async function traerProveedores() {
   const supabase = supabaseServidor();
   const { data } = await supabase.rpc("proveedores_de");

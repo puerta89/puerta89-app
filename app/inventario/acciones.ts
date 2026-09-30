@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { supabaseServidor } from "@/lib/supabase/server";
 import { leerSesion } from "@/lib/sesion";
+import { traerHistorialItem, type MovimientoItem } from "@/lib/datos";
 
 type Falla = { error: string } | null;
 
@@ -135,30 +136,78 @@ export async function nuevoProveedor(nombre: string): Promise<Falla> {
   return null;
 }
 
-export type Diferencia = {
-  nombre: string;
-  esperaba: number;
-  habia: number;
-  diferencia: number;
-};
+/** Empieza el documento de conteo — desde aquí en adelante, cada número
+ * que se escriba se guarda solo (ver guardarItemConteo). */
+export async function crearConteo(): Promise<{ error: string } | { conteoId: string }> {
+  const { sesion, falla } = await jefe();
+  if (!sesion) return { error: falla! };
 
-export async function registrarConteo(
+  const supabase = supabaseServidor();
+  const { data, error } = await supabase.rpc("conteo_crear", {
+    p_empleado: sesion.empleadoId,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/inventario/conteo");
+  return { conteoId: data as string };
+}
+
+/** Guarda lo contado de UN producto. Se llama solo, un ratito después de
+ * que la persona deja de escribir — no hace falta picarle nada para que
+ * quede guardado. Sin revalidatePath a propósito: se llama muy seguido
+ * (cada vez que alguien deja de teclear) y no hace falta refrescar toda
+ * la pantalla por cada uno. */
+export async function guardarItemConteo(
+  conteoId: string,
+  productoId: string | null,
+  presentacionId: string | null,
+  contado: number,
+): Promise<Falla> {
+  const { sesion, falla } = await jefe();
+  if (!sesion) return { error: falla! };
+
+  const supabase = supabaseServidor();
+  const { error } = await supabase.rpc("conteo_guardar_item", {
+    p_empleado: sesion.empleadoId,
+    p_conteo: conteoId,
+    p_producto: productoId,
+    p_presentacion: presentacionId,
+    p_contado: contado,
+  });
+  if (error) return { error: error.message };
+  return null;
+}
+
+export async function cancelarConteo(conteoId: string): Promise<Falla> {
+  const { sesion, falla } = await jefe();
+  if (!sesion) return { error: falla! };
+
+  const supabase = supabaseServidor();
+  const { error } = await supabase.rpc("conteo_cancelar", {
+    p_empleado: sesion.empleadoId,
+    p_conteo: conteoId,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/inventario/conteo");
+  return null;
+}
+
+export async function completarConteo(
+  conteoId: string,
   codigo: string,
-  items: { producto_id: string | null; presentacion_id: string | null; contado: number }[],
 ): Promise<{ error: string } | { diferencias: Diferencia[] }> {
   const { sesion, falla } = await jefe();
   if (!sesion) return { error: falla! };
   if (!/^\d{4}$/.test(codigo)) return { error: "El código son 4 números." };
-  if (items.length === 0) return { error: "No contaste nada." };
 
   const supabase = supabaseServidor();
-  const { data, error } = await supabase.rpc("registrar_conteo", {
+  const { data, error } = await supabase.rpc("conteo_completar", {
     p_empleado: sesion.empleadoId,
+    p_conteo: conteoId,
     p_codigo: codigo,
-    p_items: items,
   });
   if (error) return { error: error.message };
   revalidatePath("/inventario");
+  revalidatePath("/inventario/conteo");
   return {
     diferencias: (data ?? []).map((r: Record<string, unknown>) => ({
       nombre: r.nombre as string,
@@ -168,3 +217,21 @@ export async function registrarConteo(
     })),
   };
 }
+
+export async function verHistorial(
+  productoId: string | null,
+  presentacionId: string | null,
+): Promise<{ error: string } | { movimientos: MovimientoItem[] }> {
+  const { sesion, falla } = await jefe();
+  if (!sesion) return { error: falla! };
+
+  const movimientos = await traerHistorialItem(sesion.sucursalId, productoId, presentacionId);
+  return { movimientos };
+}
+
+export type Diferencia = {
+  nombre: string;
+  esperaba: number;
+  habia: number;
+  diferencia: number;
+};

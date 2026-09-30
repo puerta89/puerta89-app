@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { leerSesion } from "@/lib/sesion";
 import { supabaseServidor } from "@/lib/supabase/server";
-import { traerMapa, traerSucursalesDisponibles } from "@/lib/datos";
+import { traerMapa, traerSucursalesDisponibles, traerInventario } from "@/lib/datos";
 import { salir } from "../entrar/acciones";
 import Mapa from "./mapa";
 import SelectorSucursal from "./selector-sucursal";
@@ -39,12 +39,18 @@ export default async function Barra() {
     return <EmpezarOrden />;
   }
 
-  const [zonas, sucursales] = await Promise.all([
+  const [zonas, sucursales, inventario] = await Promise.all([
     traerMapa(sesion.sucursalId),
     sesion.puedeCambiarSucursal
       ? traerSucursalesDisponibles(sesion.empleadoId)
       : Promise.resolve([]),
+    traerInventario(sesion.sucursalId),
   ]);
+  // Mismo criterio que la pestaña "Qué pedir" de /inventario — para que
+  // el número de aquí y el de allá siempre coincidan.
+  const porPedir = inventario.filter(
+    (i) => i.activo && (i.sugerido > 0 || (i.minimo > 0 && i.cantidad <= i.minimo)),
+  ).length;
 
   return (
     <main className="min-h-dvh bg-crema">
@@ -122,6 +128,18 @@ export default async function Barra() {
       </header>
 
       <div className="mx-auto max-w-4xl px-4 py-5">
+        {porPedir > 0 && (
+          <Link
+            href="/inventario"
+            className="mb-4 flex items-center justify-between gap-3 rounded-sm border border-[#9C6A1E]/30 bg-[#9C6A1E]/10 px-4 py-3 text-sm text-[#9C6A1E]"
+          >
+            <span>
+              {porPedir} {porPedir === 1 ? "producto está" : "productos están"} por
+              acabarse o ya no alcanzan.
+            </span>
+            <span className="font-medium underline">Ver inventario →</span>
+          </Link>
+        )}
         <Mapa zonas={zonas} empleadoId={sesion.empleadoId} />
       </div>
     </main>

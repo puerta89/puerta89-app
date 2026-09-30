@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { leerSesion } from "@/lib/sesion";
-import { traerInventario } from "@/lib/datos";
+import { traerConteoActivo } from "@/lib/datos";
 import Hoja from "./hoja";
 
 export const metadata = { title: "Conteo físico · Puerta 89" };
@@ -11,7 +11,7 @@ export default async function Conteo() {
   if (!sesion) redirect("/entrar");
   if (sesion.rol === "mesero") redirect("/barra");
 
-  const items = await traerInventario(sesion.sucursalId);
+  const conteo = await traerConteoActivo(sesion.sucursalId);
 
   return (
     <main className="min-h-dvh bg-crema">
@@ -33,7 +33,18 @@ export default async function Conteo() {
         </div>
       </header>
       <div className="mx-auto max-w-lg px-4 py-5">
-        <Hoja items={items} />
+        <Hoja
+          conteoInicial={
+            conteo
+              ? {
+                  conteoId: conteo.conteoId,
+                  creadoEn: conteo.creadoEn,
+                  creadoPor: conteo.creadoPor,
+                  lineas: conteo.lineas,
+                }
+              : null
+          }
+        />
       </div>
     </main>
   );

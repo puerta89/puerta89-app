@@ -3,7 +3,29 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ItemInventario } from "@/lib/datos";
-import { fijarMinimo, registrarMerma, cambiarActivo, fijarRendimiento } from "./acciones";
+import { fijarMinimo, registrarMerma, cambiarActivo, fijarRendimiento, verHistorial } from "./acciones";
+import type { MovimientoItem } from "@/lib/datos";
+
+const TIPOS: Record<string, string> = {
+  venta: "Venta",
+  compra: "Compra",
+  merma: "Merma",
+  cortesia: "Cortesía",
+  ajuste: "Ajuste",
+  devolucion: "Devolución",
+  traspaso_salida: "Traspaso (salida)",
+  traspaso_entrada: "Traspaso (entrada)",
+  apertura_botella: "Botella abierta",
+  conteo_fisico: "Conteo físico",
+};
+
+const fecha = (iso: string) =>
+  new Date(iso).toLocaleString("es-MX", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 
 const pesos = (n: number) =>
   n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
@@ -224,6 +246,15 @@ function Panel({
   const [motivo, setMotivo] = useState("");
   const [codigo, setCodigo] = useState("");
   const [rinde, setRinde] = useState(String(item.rinde_configurado ?? ""));
+  const [historial, setHistorial] = useState<MovimientoItem[] | null>(null);
+  const [cargandoHistorial, setCargandoHistorial] = useState(false);
+
+  async function abrirHistorial() {
+    setCargandoHistorial(true);
+    const r = await verHistorial(item.producto_id, item.presentacion_id);
+    setCargandoHistorial(false);
+    if (!("error" in r)) setHistorial(r.movimientos);
+  }
 
   return (
     <div className="fixed inset-0 z-20 flex items-end justify-center bg-tinta/50 sm:items-center sm:p-6">
@@ -242,6 +273,53 @@ function Panel({
           >
             Cerrar
           </button>
+        </div>
+
+        <div className="border-b border-vino/15 p-4">
+          {historial === null ? (
+            <button
+              type="button"
+              disabled={cargandoHistorial}
+              onClick={abrirHistorial}
+              className="rounded-sm border border-vino/25 px-3 py-1.5 text-xs text-vino disabled:opacity-40"
+            >
+              {cargandoHistorial ? "Cargando..." : "Ver historial"}
+            </button>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">Historial</p>
+                <button
+                  type="button"
+                  onClick={() => setHistorial(null)}
+                  className="text-xs text-vino underline"
+                >
+                  Ocultar
+                </button>
+              </div>
+              {historial.length === 0 ? (
+                <p className="text-xs text-tinta-2">Todavía no hay movimientos registrados.</p>
+              ) : (
+                <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto">
+                  {historial.map((m, i) => (
+                    <li key={i} className="flex justify-between gap-2 border-b border-vino/10 py-1.5 text-xs last:border-b-0">
+                      <span className="flex-1">
+                        {TIPOS[m.tipo] ?? m.tipo}
+                        {m.motivo && <span className="text-tinta-2"> · {m.motivo}</span>}
+                        <span className="block text-tinta-2">
+                          {fecha(m.fecha)}{m.empleado && ` · ${m.empleado}`}
+                        </span>
+                      </span>
+                      <span className={`tabular-nums ${m.cantidad < 0 ? "text-vino" : "text-[#556B4A]"}`}>
+                        {m.cantidad > 0 ? "+" : ""}
+                        {cifra(m.cantidad)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
 
         {item.vinculados && (
