@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { leerSesion } from "@/lib/sesion";
 import { traerEquipo } from "@/lib/datos";
+import { supabaseServidor } from "@/lib/supabase/server";
 import Equipo from "./lista";
 
 export const metadata = { title: "Equipo · Puerta 89" };
@@ -12,6 +13,12 @@ export default async function Pagina() {
   if (sesion.rol !== "dueno") redirect("/barra");
 
   const equipo = await traerEquipo(sesion.sucursalId);
+  const { data: suc } = await supabaseServidor()
+    .from("sucursales")
+    .select("meseros_editan_libre")
+    .eq("id", sesion.sucursalId)
+    .maybeSingle();
+  const edicionLibre = suc?.meseros_editan_libre ?? true;
 
   return (
     <main className="min-h-dvh bg-crema">
@@ -33,7 +40,7 @@ export default async function Pagina() {
         </div>
       </header>
       <div className="mx-auto max-w-lg px-4 py-5">
-        <Equipo equipo={equipo} />
+        <Equipo equipo={equipo} edicionLibre={edicionLibre} />
       </div>
     </main>
   );

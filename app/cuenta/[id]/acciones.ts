@@ -121,6 +121,47 @@ export async function disminuirCantidad(
   return null;
 }
 
+export async function ponerComentario(
+  ticketId: string,
+  comentario: string,
+): Promise<Falla> {
+  const sesion = await leerSesion();
+  if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
+
+  const supabase = supabaseServidor();
+  const { error } = await supabase.rpc("poner_comentario_cuenta", {
+    p_empleado: sesion.empleadoId,
+    p_ticket: ticketId,
+    p_comentario: comentario,
+  });
+  if (error) return { error: error.message };
+  revalidatePath(`/cuenta/${ticketId}`);
+  return null;
+}
+
+/** "Pasar a otro mesero": le cambia el dueño de la cuenta a otro
+ * empleado activo de la misma sucursal — para cuando alguien se va a
+ * comer, cambia de turno, o simplemente le ayuda otro compañero. */
+export async function reasignarMesero(
+  ticketId: string,
+  nuevoMeseroId: string,
+): Promise<Falla> {
+  const sesion = await leerSesion();
+  if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };
+
+  const supabase = supabaseServidor();
+  const { error } = await supabase.rpc("reasignar_mesero", {
+    p_solicitante: sesion.empleadoId,
+    p_ticket: ticketId,
+    p_nuevo: nuevoMeseroId,
+  });
+  if (error) return { error: error.message };
+  await soltarSiEraLaActual(sesion, ticketId);
+  revalidatePath(`/cuenta/${ticketId}`);
+  revalidatePath("/tickets-abiertos");
+  return null;
+}
+
 export async function pedirCuenta(ticketId: string): Promise<Falla> {
   const sesion = await leerSesion();
   if (!sesion) return { error: "Tu sesión venció. Vuelve a entrar con tu código." };

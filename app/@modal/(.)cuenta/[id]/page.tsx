@@ -26,6 +26,7 @@ export default async function CuentaEnPanel({
     bancosLibres,
     bancosPropios,
     edicionLibre,
+    equipoActivo,
   } = await obtenerCuenta(id);
 
   return (
@@ -48,6 +49,8 @@ export default async function CuentaEnPanel({
         bancosLibres={bancosLibres}
         bancosPropios={bancosPropios}
         edicionLibre={edicionLibre}
+        equipoActivo={equipoActivo}
+        comentario={cabecera.comentario}
       />
     </PanelCuenta>
   );

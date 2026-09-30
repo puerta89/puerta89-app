@@ -20,6 +20,7 @@ export default async function Cuenta({ params }: PageProps<"/cuenta/[id]">) {
     bancosLibres,
     bancosPropios,
     edicionLibre,
+    equipoActivo,
   } = await obtenerCuenta(id);
 
   return (
@@ -96,6 +97,8 @@ export default async function Cuenta({ params }: PageProps<"/cuenta/[id]">) {
           bancosLibres={bancosLibres}
           bancosPropios={bancosPropios}
         edicionLibre={edicionLibre}
+        equipoActivo={equipoActivo}
+        comentario={cabecera.comentario}
         />
       </div>
     </main>

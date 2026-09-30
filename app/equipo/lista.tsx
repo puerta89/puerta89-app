@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { MiembroEquipo } from "@/lib/datos";
-import { altaEmpleado, cambiarCodigo, cambiarAlta } from "./acciones";
+import { altaEmpleado, cambiarCodigo, cambiarAlta, cambiarEdicionLibre } from "./acciones";
 
 const PUESTOS = [
   { valor: "mesero", texto: "Mesero" },
@@ -14,7 +14,13 @@ const PUESTOS = [
 const comoPuesto = (r: string) =>
   r === "dueno" ? "Dueño" : r === "gerente" ? "Gerente" : "Mesero";
 
-export default function Equipo({ equipo }: { equipo: MiembroEquipo[] }) {
+export default function Equipo({
+  equipo,
+  edicionLibre,
+}: {
+  equipo: MiembroEquipo[];
+  edicionLibre: boolean;
+}) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [listo, setListo] = useState<string | null>(null);
@@ -46,6 +52,29 @@ export default function Equipo({ equipo }: { equipo: MiembroEquipo[] }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3 rounded-sm border border-vino/15 bg-white px-5 py-5">
+        <h2 className="font-display text-2xl text-vino">Cómo editan los meseros</h2>
+        <label className="flex items-center justify-between gap-3 text-sm">
+          <span className="max-w-sm text-tinta-2">
+            Encendido: quitan o cambian renglones de una cuenta sin pedir
+            código ni motivo, como en Loyverse. Apagado: necesitan tu código
+            y anotar por qué, y solo en los primeros 10 minutos.
+          </span>
+          <input
+            type="checkbox"
+            checked={edicionLibre}
+            disabled={ocupado}
+            onChange={(e) =>
+              correr(
+                () => cambiarEdicionLibre(e.target.checked),
+                e.target.checked ? "Edición libre encendida." : "Edición libre apagada.",
+              )
+            }
+            className="size-5 shrink-0 accent-vino"
+          />
+        </label>
+      </div>
+
       <div className="flex flex-col gap-3 rounded-sm border border-vino/15 bg-white px-5 py-5">
         <h2 className="font-display text-2xl text-vino">Dar de alta a alguien</h2>
         <p className="text-sm text-tinta-2">

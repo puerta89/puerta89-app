@@ -13,6 +13,8 @@ import {
   partirCuenta,
   aumentarCantidad,
   disminuirCantidad,
+  ponerComentario,
+  reasignarMesero,
 } from "./acciones";
 
 // "Sírveme otra copa" se puede deshacer sin pedir nada, pero solo un
@@ -47,6 +49,8 @@ export default function Comanda({
   bancosPropios,
   rol,
   edicionLibre,
+  equipoActivo,
+  comentario,
 }: {
   ticketId: string;
   catalogo: ItemCatalogo[];
@@ -59,6 +63,10 @@ export default function Comanda({
   rol: "dueno" | "gerente" | "mesero";
   /** Interruptor del dueño: meseros editan sin código ni motivo. */
   edicionLibre: boolean;
+  /** Para "Pasar a otro mesero": todo el equipo activo de la sucursal. */
+  equipoActivo: { id: string; nombre: string }[];
+  /** Nota libre de la cuenta (ej. "sin cebolla", "mesa VIP"). */
+  comentario: string;
 }) {
   const router = useRouter();
   // Sin mesa todavía: se tomó la orden primero (Mercedes). Mientras dure,
@@ -90,6 +98,9 @@ export default function Comanda({
   const [codigoJefe, setCodigoJefe] = useState("");
   const [motivo, setMotivo] = useState("");
   const [cancelandoMesa, setCancelandoMesa] = useState(false);
+  const [editandoComentario, setEditandoComentario] = useState(false);
+  const [comentarioTexto, setComentarioTexto] = useState(comentario);
+  const [reasignando, setReasignando] = useState(false);
   const [ocupado, empezar] = useTransition();
 
   const sabores_helado = useMemo(
@@ -181,6 +192,31 @@ export default function Comanda({
 
   return (
     <div className="grid gap-4 md:grid-cols-[1.4fr_1fr] md:items-start">
+      {/* ─────────── COMENTARIO Y PASAR DE MESERO ─────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-2 md:col-span-2">
+        <p className="min-w-0 flex-1 truncate text-sm text-tinta-2 italic">
+          {comentario || "Sin comentario"}
+        </p>
+        <div className="flex shrink-0 gap-2">
+          <button
+            type="button"
+            onClick={() => setEditandoComentario(true)}
+            className="rounded-sm border border-vino/25 px-3 py-1.5 text-xs text-vino"
+          >
+            {comentario ? "Editar comentario" : "+ Comentario"}
+          </button>
+          {equipoActivo.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setReasignando(true)}
+              className="rounded-sm border border-vino/25 px-3 py-1.5 text-xs text-vino"
+            >
+              Pasar a otro mesero
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* ─────────── MENÚ ─────────── */}
       <section className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
@@ -755,6 +791,67 @@ export default function Comanda({
             >
               {ocupado ? "Cancelando..." : lineas.length === 0 ? "Sí, cancelar la mesa" : "Sí, cancelar toda la cuenta"}
             </button>
+          </div>
+        </Hoja>
+      )}
+
+      {/* ─────────── COMENTARIO DE LA CUENTA ─────────── */}
+      {editandoComentario && (
+        <Hoja
+          titulo="Comentario de la cuenta"
+          sub="Se ve en toda la cuenta"
+          cerrar={() => {
+            setEditandoComentario(false);
+            setComentarioTexto(comentario);
+          }}
+        >
+          <div className="flex flex-col gap-4 p-4">
+            <textarea
+              value={comentarioTexto}
+              onChange={(e) => setComentarioTexto(e.target.value)}
+              placeholder="Ej. sin cebolla, mesa VIP, alergia a nueces..."
+              rows={3}
+              className="rounded-sm border border-vino/25 px-3 py-3 outline-none focus:border-vino"
+            />
+            <button
+              type="button"
+              disabled={ocupado}
+              onClick={() =>
+                correr(() => ponerComentario(ticketId, comentarioTexto), () =>
+                  setEditandoComentario(false),
+                )
+              }
+              className="rounded-sm bg-vino px-4 py-3.5 font-medium text-crema disabled:opacity-40"
+            >
+              {ocupado ? "Guardando..." : "Guardar"}
+            </button>
+          </div>
+        </Hoja>
+      )}
+
+      {/* ─────────── PASAR A OTRO MESERO ─────────── */}
+      {reasignando && (
+        <Hoja
+          titulo="Pasar a otro mesero"
+          sub="Le cambia el dueño de la cuenta"
+          cerrar={() => setReasignando(false)}
+        >
+          <div className="flex flex-col gap-2 p-4">
+            {equipoActivo.map((e) => (
+              <button
+                key={e.id}
+                type="button"
+                disabled={ocupado}
+                onClick={() =>
+                  correr(() => reasignarMesero(ticketId, e.id), () =>
+                    setReasignando(false),
+                  )
+                }
+                className="rounded-sm border border-vino/15 px-4 py-3 text-left text-sm active:bg-rosa-claro/30 disabled:opacity-40"
+              >
+                {e.nombre}
+              </button>
+            ))}
           </div>
         </Hoja>
       )}

@@ -212,8 +212,9 @@ export default async function Panel({ searchParams }: PageProps<"/panel">) {
               )}
               {resumen.cancelado > 0 && (
                 <p className="mt-3 text-xs text-tinta-2">
-                  Además se cancelaron {exacto(resumen.cancelado)} en productos que
-                  ya estaban pedidos. Eso no es pérdida, pero conviene verlo.
+                  Además se cancelaron o devolvieron {exacto(resumen.cancelado)} en
+                  productos que ya estaban pedidos o cobrados. Eso no es pérdida,
+                  pero conviene verlo.
                 </p>
               )}
             </section>

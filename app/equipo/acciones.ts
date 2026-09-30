@@ -80,3 +80,17 @@ export async function cambiarAlta(
   revalidatePath("/equipo");
   return null;
 }
+
+export async function cambiarEdicionLibre(activo: boolean): Promise<Falla> {
+  const { sesion, falla } = await dueno();
+  if (!sesion) return { error: falla! };
+
+  const supabase = supabaseServidor();
+  const { error } = await supabase
+    .from("sucursales")
+    .update({ meseros_editan_libre: activo })
+    .eq("id", sesion.sucursalId);
+  if (error) return { error: error.message };
+  revalidatePath("/equipo");
+  return null;
+}

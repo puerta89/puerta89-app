@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
     { c: "Tarjeta", v: resumen.tarjeta },
     { c: "Propinas", v: resumen.propinas },
     { c: "Descuentos", v: resumen.descuentos },
-    { c: "Cancelado", v: resumen.cancelado },
+    { c: "Cancelado/devuelto", v: resumen.cancelado },
   ]);
   [4, 5, 6, 8, 9, 10, 15, 16, 17, 18, 19].forEach((fila) => {
     hResumen.getCell(`B${fila}`).numFmt = PESOS;

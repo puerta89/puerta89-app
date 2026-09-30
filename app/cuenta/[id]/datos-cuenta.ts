@@ -16,12 +16,13 @@ export async function obtenerCuenta(id: string) {
   // llevar, o que todavía no se sienta a ningún lado) nunca aparecería
   // ahí — se busca la cuenta por su propio id con ticket_cabecera, y
   // mapa_barra queda solo para armar la lista de bancos libres/propios.
-  const [{ data: mapa }, { data: cabRows }] = await Promise.all([
+  const [{ data: mapa }, { data: cabRows }, { data: equipoRows }] = await Promise.all([
     supabase.rpc("mapa_barra", { p_sucursal: sesion.sucursalId }),
     supabase.rpc("ticket_cabecera", {
       p_sucursal: sesion.sucursalId,
       p_ticket: id,
     }),
+    supabase.rpc("equipo_de", { p_sucursal: sesion.sucursalId }),
   ]);
 
   const cab = cabRows?.[0];
@@ -35,7 +36,15 @@ export async function obtenerCuenta(id: string) {
     mesero: cab.mesero as string | null,
     abierto_en: cab.abierto_en as string,
     ticket_estado: cab.estado as "abierto" | "por_cobrar",
+    comentario: (cab.comentario as string | null) ?? "",
   };
+
+  // Para "pasar a otro mesero": cualquier otro empleado activo de esta
+  // sucursal (dueño, gerente o mesero — cualquiera puede recibir cuentas).
+  type FilaEquipo = { empleado_id: string; nombre: string; activo: boolean };
+  const equipoActivo = ((equipoRows ?? []) as FilaEquipo[])
+    .filter((e) => e.activo)
+    .map((e) => ({ id: e.empleado_id, nombre: e.nombre }));
 
   type Fila = {
     banco_id: string; numero: number; zona_nombre: string; ticket_id: string | null;
@@ -88,5 +97,6 @@ export async function obtenerCuenta(id: string) {
     bancosLibres,
     bancosPropios,
     edicionLibre,
+    equipoActivo,
   };
 }
